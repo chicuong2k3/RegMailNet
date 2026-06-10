@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Support.UI;
+using Microsoft.Playwright;
 using RegMailNet.SmsServices;
 using RegMailNet.Utilities;
 
@@ -8,38 +7,39 @@ namespace RegMailNet.EmailProviders;
 
 public class GmailProvider : IEmailProvider
 {
-    private static class Selectors
+    private static class Sel
     {
-        public static readonly By FirstName = By.Id("firstName");
-        public static readonly By LastName = By.Id("lastName");
-        public static readonly By Month = By.Id("month");
-        public static readonly By Day = By.XPath("//input[@name=\"day\"]");
-        public static readonly By Year = By.Id("year");
-        public static readonly By Gender = By.Id("gender");
-        public static readonly By Username = By.Name("Username");
-        public static readonly By Password = By.Name("Passwd");
-        public static readonly By PasswordConfirm = By.Name("PasswdAgain");
-        public static readonly By PhoneInput = By.Id("phoneNumberId");
-        public static readonly By VerificationCode = By.Id("code");
-        public static readonly By ErrorMessage = By.XPath("//div[contains(text(), 'Sorry, we could not create your Google Account.')]");
-        public static readonly By PhoneError = By.XPath("//div[@class='Ekjuhf Jj6Lae']");
+        public const string FirstName = "#firstName";
+        public const string LastName = "#lastName";
+        public const string Month = "#month";
+        public const string Day = "input[name=\"day\"]";
+        public const string Year = "#year";
+        public const string Gender = "#gender";
+        public const string Username = "input[name=\"Username\"]";
+        public const string Password = "input[name=\"Passwd\"]";
+        public const string PasswordConfirm = "input[name=\"PasswdAgain\"]";
+        public const string PhoneInput = "#phoneNumberId";
+        public const string VerificationCode = "#code";
+        public const string ErrorMessage = "div:has-text('Sorry, we could not create your Google Account.')";
+        public const string PhoneError = "div.Ekjuhf.Jj6Lae";
     }
 
-    private static readonly By[] NextButtonSelectors =
+    private static readonly string[] NextButtonSelectors =
     [
-        By.XPath("//span[contains(text(),'Skip')]"),
-        By.CssSelector("div.VfPpkd-RLmnJb"),
-        By.CssSelector("div.VfPpkd-Jh9lGc"),
-        By.CssSelector("span.VfPpkd-vQzf8d"),
-        By.XPath("//span[contains(text(), 'Next')]"),
-        By.XPath("//span[contains(text(),'I agree')]"),
-        By.XPath("//div[contains(text(),'I agree')]"),
-        By.ClassName("VfPpkd-LgbsSe"),
-        By.XPath("//button[contains(text(),'Next')]"),
-        By.XPath("//button[contains(text(),'I agree')]")
+        "span:has-text('Skip')",
+        "div.VfPpkd-RLmnJb",
+        "div.VfPpkd-Jh9lGc",
+        "span.VfPpkd-vQzf8d",
+        "span:has-text('Next')",
+        "span:has-text('I agree')",
+        "div:has-text('I agree')",
+        "button.VfPpkd-LgbsSe",
+        "button:has-text('Next')",
+        "button:has-text('I agree')",
     ];
 
     private const int WaitTimeout = 10;
+    private const int WaitTimeoutMs = WaitTimeout * 1000;
 
     private readonly ISmsServiceFactory _smsServiceFactory;
     private readonly ILogger<GmailProvider> _logger;
@@ -52,8 +52,22 @@ public class GmailProvider : IEmailProvider
         _logger = logger;
     }
 
-    public virtual AccountCreationResult CreateAccount(
-        IWebDriver driver,
+    public virtual async Task<AccountCreationResult> CreateAccountAsync(
+        IPage page,
+        string username,
+        string password,
+        string firstName,
+        string lastName,
+        string month,
+        string day,
+        string year,
+        CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException("Use the overload with ISmsServiceFactory and smsKey");
+    }
+
+    public virtual async Task<AccountCreationResult> CreateAccountAsync(
+        IPage page,
         ISmsServiceFactory smsServiceFactory,
         Dictionary<string, string> smsKey,
         string username,
@@ -62,44 +76,49 @@ public class GmailProvider : IEmailProvider
         string lastName,
         string month,
         string day,
-        string year)
+        string year,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             _logger.LogInformation("Starting Gmail account creation process");
-            driver.Navigate().GoToUrl("https://accounts.google.com/signup/v2/createaccount?flowName=GlifWebSignIn&flowEntry=SignUp");
+            await page.GotoAsync("https://accounts.google.com/signup/v2/createaccount?flowName=GlifWebSignIn&flowEntry=SignUp");
 
-            FillPersonalInfo(driver, firstName, lastName);
-            FillBirthdate(driver, month, day, year);
+            await FillPersonalInfoAsync(page, firstName, lastName);
+            await FillBirthdateAsync(page, month, day, year);
 
-            SetHowToSetUsername(driver);
-            WebHelpers.SetInputValue(driver, Selectors.Username, username);
-            NextButton(driver);
-            WebHelpers.TypeInto(driver, Selectors.Password, password);
-            WebHelpers.TypeInto(driver, Selectors.PasswordConfirm, password);
-            NextButton(driver);
+            await SetHowToSetUsernameAsync(page);
+            await WebHelpers.FillAsync(page, Sel.Username, username);
+            await NextButtonAsync(page);
+            await WebHelpers.TypeIntoAsync(page, Sel.Password, password);
+            await WebHelpers.TypeIntoAsync(page, Sel.PasswordConfirm, password);
+            await NextButtonAsync(page);
 
-            HandleErrors(driver);
+            await HandleErrorsAsync(page);
 
-            Thread.Sleep(2000);
-            if (driver.FindElements(Selectors.PhoneInput).Count > 0)
+            await Task.Delay(2000, cancellationToken);
+            if (await WebHelpers.ElementExistsAsync(page, Sel.PhoneInput))
             {
                 var smsProvider = smsServiceFactory.Create(smsKey, "google");
-                var phoneInfo = HandlePhoneVerification(driver, smsKey, smsProvider);
-                HandleSmsCode(driver, smsKey, smsProvider, phoneInfo);
+                var phoneInfo = await HandlePhoneVerificationAsync(page, smsProvider);
+                await HandleSmsCodeAsync(page, smsProvider, phoneInfo);
             }
 
             for (var i = 0; i < 3; i++)
             {
-                NextButton(driver);
-                Thread.Sleep(2000);
+                await NextButtonAsync(page);
+                await Task.Delay(2000, cancellationToken);
             }
 
-            ConfirmAlert(driver);
+            await ConfirmAlertAsync(page);
 
-            var agreeButton = new WebDriverWait(driver, TimeSpan.FromSeconds(5))
-                .Until(d => d.FindElement(By.CssSelector("button span.VfPpkd-vQzf8d")));
-            agreeButton.Click();
+            var agreeButton = page.Locator("button span.VfPpkd-vQzf8d");
+            await agreeButton.WaitForAsync(new LocatorWaitForOptions
+            {
+                State = WaitForSelectorState.Visible,
+                Timeout = 5000,
+            });
+            await agreeButton.ClickAsync();
 
             _logger.LogInformation("Gmail account created successfully");
             return new AccountCreationResult($"{username}@gmail.com", password);
@@ -109,29 +128,20 @@ public class GmailProvider : IEmailProvider
             _logger.LogError(ex, "Account creation failed");
             throw new AccountCreationException("Account creation process failed", ex);
         }
-        finally
-        {
-            driver.Quit();
-        }
     }
 
-    public Task<AccountCreationResult> CreateAccountAsync(IWebDriver driver, string username, string password, string firstName, string lastName, string month, string day, string year, CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException("Use the overload with ISmsServiceFactory and smsKey");
-    }
-
-    private void NextButton(IWebDriver driver)
+    private async Task NextButtonAsync(IPage page)
     {
         foreach (var selector in NextButtonSelectors)
         {
             try
             {
-                var currentUrl = driver.Url;
-                WebHelpers.WaitAndClick(driver, selector, 5);
-                Thread.Sleep(1000);
-                if (currentUrl != driver.Url) return;
+                var currentUrl = page.Url;
+                await WebHelpers.ClickAsync(page, selector, 5);
+                await Task.Delay(1000);
+                if (currentUrl != page.Url) return;
             }
-            catch (WebDriverException)
+            catch (TimeoutException)
             {
                 continue;
             }
@@ -139,70 +149,90 @@ public class GmailProvider : IEmailProvider
         throw new AccountCreationException("Failed to find next button");
     }
 
-    private void SetHowToSetUsername(IWebDriver driver)
+    private async Task SetHowToSetUsernameAsync(IPage page)
     {
         try
         {
-            var element = new WebDriverWait(driver, TimeSpan.FromSeconds(WaitTimeout))
-                .Until(d => d.FindElement(By.Id("selectionc22")));
-            element.Click();
+            var locator = page.Locator("#selectionc22");
+            await locator.WaitForAsync(new LocatorWaitForOptions
+            {
+                State = WaitForSelectorState.Visible,
+                Timeout = WaitTimeoutMs,
+            });
+            await locator.ClickAsync();
         }
-        catch (WebDriverException)
+        catch (TimeoutException)
         {
             // Optional element
         }
     }
 
-    private void HandleErrors(IWebDriver driver)
+    private async Task HandleErrorsAsync(IPage page)
     {
         try
         {
-            var errorElement = new WebDriverWait(driver, TimeSpan.FromSeconds(5))
-                .Until(d => d.FindElement(Selectors.ErrorMessage));
-            _logger.LogError("Google account creation failed: {Error}", errorElement.Text);
-            throw new AccountCreationException($"Google error: {errorElement.Text}");
+            var errorElement = page.Locator(Sel.ErrorMessage);
+            await errorElement.WaitForAsync(new LocatorWaitForOptions
+            {
+                State = WaitForSelectorState.Visible,
+                Timeout = 5000,
+            });
+            var text = await errorElement.TextContentAsync();
+            _logger.LogError("Google account creation failed: {Error}", text);
+            throw new AccountCreationException($"Google error: {text}");
         }
-        catch (WebDriverException) { }
+        catch (TimeoutException) { }
     }
 
-    private void FillPersonalInfo(IWebDriver driver, string firstName, string lastName)
+    private async Task FillPersonalInfoAsync(IPage page, string firstName, string lastName)
     {
         try
         {
-            WebHelpers.SetInputValue(driver, Selectors.FirstName, firstName);
-            WebHelpers.SetInputValue(driver, Selectors.LastName, lastName);
-            NextButton(driver);
+            await WebHelpers.FillAsync(page, Sel.FirstName, firstName);
+            await WebHelpers.FillAsync(page, Sel.LastName, lastName);
+            await NextButtonAsync(page);
         }
-        catch (WebDriverException)
+        catch (Exception ex)
         {
             _logger.LogError("Failed to fill personal info");
-            throw new AccountCreationException("Personal info section timed out");
+            throw new AccountCreationException("Personal info section timed out", ex);
         }
     }
 
-    private void FillBirthdate(IWebDriver driver, string month, string day, string year)
+    private async Task FillBirthdateAsync(IPage page, string month, string day, string year)
     {
         try
         {
-            WebHelpers.TypeInto(driver, Selectors.Day, day);
-            WebHelpers.TypeInto(driver, Selectors.Year, year);
+            await WebHelpers.TypeIntoAsync(page, Sel.Day, day);
+            await WebHelpers.TypeIntoAsync(page, Sel.Year, year);
 
-            var monthSelect = new WebDriverWait(driver, TimeSpan.FromSeconds(WaitTimeout))
-                .Until(d => d.FindElement(Selectors.Month));
-            WebHelpers.ActionChainClick(driver, monthSelect);
+            // Select month
+            var monthSelect = page.Locator(Sel.Month);
+            await monthSelect.WaitForAsync(new LocatorWaitForOptions
+            {
+                State = WaitForSelectorState.Visible,
+                Timeout = WaitTimeoutMs,
+            });
+            await monthSelect.ClickAsync();
 
             var monthName = MonthsMapping.GetMonthName(month);
-            var monthElement = monthSelect.FindElement(By.XPath($"//span[text()='{monthName}']"));
-            ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", monthElement);
-            WebHelpers.ActionChainClick(driver, monthElement);
+            var monthElement = page.Locator($"span:has-text('{monthName}')").First;
+            await monthElement.ScrollIntoViewIfNeededAsync();
+            await monthElement.ClickAsync();
 
-            var genderSelect = new WebDriverWait(driver, TimeSpan.FromSeconds(WaitTimeout))
-                .Until(d => d.FindElement(Selectors.Gender));
-            WebHelpers.ActionChainClick(driver, genderSelect);
-            var genderElement = genderSelect.FindElement(By.XPath("//span[text()='Rather not say']"));
-            WebHelpers.ActionChainClick(driver, genderElement);
+            // Select gender
+            var genderSelect = page.Locator(Sel.Gender);
+            await genderSelect.WaitForAsync(new LocatorWaitForOptions
+            {
+                State = WaitForSelectorState.Visible,
+                Timeout = WaitTimeoutMs,
+            });
+            await genderSelect.ClickAsync();
 
-            NextButton(driver);
+            var genderElement = page.Locator("span:has-text('Rather not say')").First;
+            await genderElement.ClickAsync();
+
+            await NextButtonAsync(page);
         }
         catch (Exception ex)
         {
@@ -211,28 +241,38 @@ public class GmailProvider : IEmailProvider
         }
     }
 
-    private Dictionary<string, string> HandlePhoneVerification(IWebDriver driver, Dictionary<string, string> smsKey, ISmsService smsProvider)
+    private async Task<Dictionary<string, string>> HandlePhoneVerificationAsync(IPage page, ISmsService smsProvider)
     {
         try
         {
             var phoneInfo = new Dictionary<string, string>();
-            var phoneResult = smsProvider.GetPhoneAsync(sendPrefix: true).GetAwaiter().GetResult();
+            var phoneResult = await smsProvider.GetPhoneAsync(sendPrefix: true);
             phoneInfo["phone"] = phoneResult.PhoneNumber;
             if (phoneResult.OrderId != null)
                 phoneInfo["order_id"] = phoneResult.OrderId;
 
-            var phoneInput = new WebDriverWait(driver, TimeSpan.FromSeconds(WaitTimeout))
-                .Until(d => d.FindElement(Selectors.PhoneInput));
-            phoneInput.SendKeys("+" + phoneResult.PhoneNumber + Keys.Enter);
+            var phoneInput = page.Locator(Sel.PhoneInput);
+            await phoneInput.WaitForAsync(new LocatorWaitForOptions
+            {
+                State = WaitForSelectorState.Visible,
+                Timeout = WaitTimeoutMs,
+            });
+            await phoneInput.FillAsync("+" + phoneResult.PhoneNumber);
+            await page.Keyboard.PressAsync("Enter");
 
             try
             {
-                var errorElement = new WebDriverWait(driver, TimeSpan.FromSeconds(10))
-                    .Until(d => d.FindElement(Selectors.PhoneError));
-                _logger.LogError("Phone number rejected: {Error}", errorElement.Text);
-                throw new AccountCreationException($"Phone rejected: {errorElement.Text}");
+                var errorElement = page.Locator(Sel.PhoneError);
+                await errorElement.WaitForAsync(new LocatorWaitForOptions
+                {
+                    State = WaitForSelectorState.Visible,
+                    Timeout = 10000,
+                });
+                var text = await errorElement.TextContentAsync();
+                _logger.LogError("Phone number rejected: {Error}", text);
+                throw new AccountCreationException($"Phone rejected: {text}");
             }
-            catch (WebDriverException) { }
+            catch (TimeoutException) { }
 
             return phoneInfo;
         }
@@ -243,20 +283,25 @@ public class GmailProvider : IEmailProvider
         }
     }
 
-    private void HandleSmsCode(IWebDriver driver, Dictionary<string, string> smsKey, ISmsService smsProvider, Dictionary<string, string> phoneInfo)
+    private async Task HandleSmsCodeAsync(IPage page, ISmsService smsProvider, Dictionary<string, string> phoneInfo)
     {
         try
         {
             var orderId = phoneInfo.GetValueOrDefault("order_id");
             var phone = phoneInfo.GetValueOrDefault("phone");
             var code = orderId != null
-                ? smsProvider.GetCodeAsync(orderId).GetAwaiter().GetResult()
-                : smsProvider.GetCodeAsync(phone!).GetAwaiter().GetResult();
+                ? await smsProvider.GetCodeAsync(orderId)
+                : await smsProvider.GetCodeAsync(phone!);
 
-            var codeInput = new WebDriverWait(driver, TimeSpan.FromSeconds(WaitTimeout))
-                .Until(d => d.FindElement(Selectors.VerificationCode));
-            codeInput.SendKeys(code + Keys.Enter);
-            Thread.Sleep(2000);
+            var codeInput = page.Locator(Sel.VerificationCode);
+            await codeInput.WaitForAsync(new LocatorWaitForOptions
+            {
+                State = WaitForSelectorState.Visible,
+                Timeout = WaitTimeoutMs,
+            });
+            await codeInput.FillAsync(code);
+            await page.Keyboard.PressAsync("Enter");
+            await Task.Delay(2000);
         }
         catch (Exception ex)
         {
@@ -265,14 +310,17 @@ public class GmailProvider : IEmailProvider
         }
     }
 
-    private void ConfirmAlert(IWebDriver driver)
+    private async Task ConfirmAlertAsync(IPage page)
     {
         try
         {
-            new WebDriverWait(driver, TimeSpan.FromSeconds(10)).Until(d => { try { return d.SwitchTo().Alert(); } catch (NoAlertPresentException) { return null; } });
-            driver.SwitchTo().Alert().Accept();
+            page.Dialog += async (_, dialog) =>
+            {
+                await dialog.AcceptAsync();
+            };
+            await Task.Delay(500);
         }
-        catch (NoAlertPresentException)
+        catch (Exception)
         {
             _logger.LogInformation("No alert present");
         }

@@ -1,13 +1,13 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Playwright;
 using Moq;
-using OpenQA.Selenium;
+using RegMailNet.Browser;
 using RegMailNet.Configuration;
 using RegMailNet.EmailProviders;
 using RegMailNet.SmsServices;
 using RegMailNet.Utilities;
-using RegMailNet.WebDriver;
 using Xunit;
 
 namespace RegMailNet.Tests;
@@ -15,26 +15,27 @@ namespace RegMailNet.Tests;
 public class RegMailNetManagerTests
 {
     private readonly Mock<ISmsServiceFactory> _smsServiceFactoryMock;
-    private readonly Mock<IWebDriverFactory> _webDriverFactoryMock;
+    private readonly Mock<IBrowserFactory> _browserFactoryMock;
     private readonly Mock<OutlookProvider> _outlookProviderMock;
     private readonly Mock<GmailProvider> _gmailProviderMock;
     private readonly Mock<YahooProvider> _yahooProviderMock;
-    private readonly Mock<IWebDriver> _webDriverMock;
+    private readonly Mock<IPage> _pageMock;
+    private readonly Mock<IBrowserContext> _contextMock;
     private readonly Mock<IFreeProxyService> _freeProxyServiceMock;
     private readonly RegMailNetOptions _options;
 
     public RegMailNetManagerTests()
     {
         _smsServiceFactoryMock = new Mock<ISmsServiceFactory>();
-        _webDriverFactoryMock = new Mock<IWebDriverFactory>();
-        _webDriverMock = new Mock<IWebDriver>();
+        _browserFactoryMock = new Mock<IBrowserFactory>();
+        _pageMock = new Mock<IPage>();
+        _contextMock = new Mock<IBrowserContext>();
         _freeProxyServiceMock = new Mock<IFreeProxyService>();
         _outlookProviderMock = new Mock<OutlookProvider>(NullLogger<OutlookProvider>.Instance);
         _gmailProviderMock = new Mock<GmailProvider>(_smsServiceFactoryMock.Object, NullLogger<GmailProvider>.Instance);
         _yahooProviderMock = new Mock<YahooProvider>(_smsServiceFactoryMock.Object, NullLogger<YahooProvider>.Instance);
         _options = new RegMailNetOptions
         {
-            SupportedBrowsers = new List<string> { "firefox", "chrome", "undetected-chrome" },
             CaptchaServicesSupported = new List<string> { "capsolver", "nopecha" },
             DefaultCaptchaService = "capsolver",
             SmsServicesSupported = new List<string> { "getsmscode", "smspool", "5sim" },
@@ -46,29 +47,33 @@ public class RegMailNetManagerTests
             }
         };
 
-        _webDriverFactoryMock
-            .Setup(f => f.CreateDriver(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<CaptchaKeyInfo?>()))
-            .Returns(_webDriverMock.Object);
+        _browserFactoryMock
+            .Setup(f => f.CreatePageAsync(It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<bool>()))
+            .ReturnsAsync(new BrowserPage(_pageMock.Object, _contextMock.Object));
     }
 
     // ── Constructor validation ────────────────────────────────────────────────
 
     [Fact]
-    public void Constructor_InvalidBrowser_ThrowsArgumentException()
+    public void Constructor_NullBrowserFactory_ThrowsArgumentNullException()
     {
-        var act = () => CreateManager(browser: "safari");
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("*Unsupported browser*");
+        var act = () => new RegMailNetManager(
+            browserFactory: null!,
+            smsServiceFactory: _smsServiceFactoryMock.Object,
+            options: Options.Create(_options),
+            logger: NullLogger<RegMailNetManager>.Instance);
+        act.Should().Throw<ArgumentNullException>();
     }
 
-    [Theory]
-    [InlineData("firefox")]
-    [InlineData("chrome")]
-    [InlineData("undetected-chrome")]
-    public void Constructor_ValidBrowser_DoesNotThrow(string browser)
+    [Fact]
+    public void Constructor_NullSmsServiceFactory_ThrowsArgumentNullException()
     {
-        var act = () => CreateManager(browser: browser);
-        act.Should().NotThrow();
+        var act = () => new RegMailNetManager(
+            browserFactory: _browserFactoryMock.Object,
+            smsServiceFactory: null!,
+            options: Options.Create(_options),
+            logger: NullLogger<RegMailNetManager>.Instance);
+        act.Should().Throw<ArgumentNullException>();
     }
 
     // ── Captcha key resolution ────────────────────────────────────────────────
@@ -77,19 +82,17 @@ public class RegMailNetManagerTests
     public void GetCaptchaKey_NoKeyProvided_ThrowsArgumentException()
     {
         var manager = CreateManager();
-        var act = () => manager.CreateOutlookAccount();
-        act.Should().Throw<ArgumentException>()
+        var act = () => manager.CreateOutlookAccountAsync();
+        act.Should().ThrowAsync<ArgumentException>()
             .WithMessage("*No captcha key*");
     }
 
     [Fact]
     public void GetCaptchaKey_ProviderWithNoSolverMapping_ThrowsArgumentException()
     {
-        // Gmail has no captcha solver mapping in config, so it won't throw for captcha
-        // but Outlook with no matching key should throw
         var manager = CreateManager(captchaKeys: new Dictionary<string, string> { ["unknown_solver"] = "key" });
-        var act = () => manager.CreateOutlookAccount();
-        act.Should().Throw<ArgumentException>()
+        var act = () => manager.CreateOutlookAccountAsync();
+        act.Should().ThrowAsync<ArgumentException>()
             .WithMessage("*No captcha key*");
     }
 
@@ -99,15 +102,15 @@ public class RegMailNetManagerTests
     public void GetSmsKey_NoKeysProvided_ThrowsArgumentException()
     {
         var manager = CreateManager();
-        var act = () => manager.CreateGmailAccount();
-        act.Should().Throw<ArgumentException>()
+        var act = () => manager.CreateGmailAccountAsync();
+        act.Should().ThrowAsync<ArgumentException>()
             .WithMessage("*No SMS API keys*");
     }
 
     // ── Proxy handling ────────────────────────────────────────────────────────
 
     [Fact]
-    public void CreateGmailAccount_WithProvidedProxy_PassesProxyToDriverFactory()
+    public async Task CreateGmailAccount_WithProvidedProxy_PassesProxyToFactory()
     {
         var manager = CreateManager(
             proxies: new List<string> { "http://myproxy:8080" },
@@ -117,21 +120,21 @@ public class RegMailNetManagerTests
             });
 
         _gmailProviderMock
-            .Setup(p => p.CreateAccount(It.IsAny<IWebDriver>(), It.IsAny<ISmsServiceFactory>(),
+            .Setup(p => p.CreateAccountAsync(It.IsAny<IPage>(), It.IsAny<ISmsServiceFactory>(),
                 It.IsAny<Dictionary<string, string>>(), It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string>()))
-            .Returns(new AccountCreationResult("test@gmail.com", "pass"));
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCreationResult("test@gmail.com", "pass"));
 
-        manager.CreateGmailAccount();
+        await manager.CreateGmailAccountAsync();
 
-        _webDriverFactoryMock.Verify(
-            f => f.CreateDriver("firefox", false, "http://myproxy:8080", It.IsAny<CaptchaKeyInfo?>()),
+        _browserFactoryMock.Verify(
+            f => f.CreatePageAsync(true, "http://myproxy:8080", true, true),
             Times.Once);
     }
 
     [Fact]
-    public void CreateGmailAccount_UseProxyFalse_PassesNullProxy()
+    public async Task CreateGmailAccount_UseProxyFalse_PassesNullProxy()
     {
         var manager = CreateManager(
             proxies: new List<string> { "http://myproxy:8080" },
@@ -141,21 +144,21 @@ public class RegMailNetManagerTests
             });
 
         _gmailProviderMock
-            .Setup(p => p.CreateAccount(It.IsAny<IWebDriver>(), It.IsAny<ISmsServiceFactory>(),
+            .Setup(p => p.CreateAccountAsync(It.IsAny<IPage>(), It.IsAny<ISmsServiceFactory>(),
                 It.IsAny<Dictionary<string, string>>(), It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string>()))
-            .Returns(new AccountCreationResult("test@gmail.com", "pass"));
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCreationResult("test@gmail.com", "pass"));
 
-        manager.CreateGmailAccount(useProxy: false);
+        await manager.CreateGmailAccountAsync(useProxy: false);
 
-        _webDriverFactoryMock.Verify(
-            f => f.CreateDriver("firefox", false, null, It.IsAny<CaptchaKeyInfo?>()),
+        _browserFactoryMock.Verify(
+            f => f.CreatePageAsync(true, null, true, true),
             Times.Once);
     }
 
     [Fact]
-    public void CreateGmailAccount_AutoProxy_CallsFreeProxyService()
+    public async Task CreateGmailAccount_AutoProxy_CallsFreeProxyService()
     {
         _freeProxyServiceMock
             .Setup(s => s.GetProxyAsync(It.IsAny<string[]?>(), It.IsAny<CancellationToken>()))
@@ -170,22 +173,22 @@ public class RegMailNetManagerTests
             });
 
         _gmailProviderMock
-            .Setup(p => p.CreateAccount(It.IsAny<IWebDriver>(), It.IsAny<ISmsServiceFactory>(),
+            .Setup(p => p.CreateAccountAsync(It.IsAny<IPage>(), It.IsAny<ISmsServiceFactory>(),
                 It.IsAny<Dictionary<string, string>>(), It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string>()))
-            .Returns(new AccountCreationResult("test@gmail.com", "pass"));
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCreationResult("test@gmail.com", "pass"));
 
-        manager.CreateGmailAccount();
+        await manager.CreateGmailAccountAsync();
 
         _freeProxyServiceMock.Verify(s => s.GetProxyAsync(null, It.IsAny<CancellationToken>()), Times.Once);
-        _webDriverFactoryMock.Verify(
-            f => f.CreateDriver("firefox", false, "http://freeproxy:3128", It.IsAny<CaptchaKeyInfo?>()),
+        _browserFactoryMock.Verify(
+            f => f.CreatePageAsync(true, "http://freeproxy:3128", true, true),
             Times.Once);
     }
 
     [Fact]
-    public void CreateGmailAccount_AutoProxyNoFreeProxy_PassesNullProxy()
+    public async Task CreateGmailAccount_AutoProxyNoFreeProxy_PassesNullProxy()
     {
         _freeProxyServiceMock
             .Setup(s => s.GetProxyAsync(It.IsAny<string[]?>(), It.IsAny<CancellationToken>()))
@@ -200,34 +203,34 @@ public class RegMailNetManagerTests
             });
 
         _gmailProviderMock
-            .Setup(p => p.CreateAccount(It.IsAny<IWebDriver>(), It.IsAny<ISmsServiceFactory>(),
+            .Setup(p => p.CreateAccountAsync(It.IsAny<IPage>(), It.IsAny<ISmsServiceFactory>(),
                 It.IsAny<Dictionary<string, string>>(), It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string>()))
-            .Returns(new AccountCreationResult("test@gmail.com", "pass"));
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCreationResult("test@gmail.com", "pass"));
 
-        manager.CreateGmailAccount();
+        await manager.CreateGmailAccountAsync();
 
-        _webDriverFactoryMock.Verify(
-            f => f.CreateDriver("firefox", false, null, It.IsAny<CaptchaKeyInfo?>()),
+        _browserFactoryMock.Verify(
+            f => f.CreatePageAsync(true, null, true, true),
             Times.Once);
     }
 
     // ── Account creation ──────────────────────────────────────────────────────
 
     [Fact]
-    public void CreateOutlookAccount_WithValidKeys_CallsProvider()
+    public async Task CreateOutlookAccount_WithValidKeys_CallsProvider()
     {
         var manager = CreateManager(
             captchaKeys: new Dictionary<string, string> { ["capsolver"] = "token" });
 
         _outlookProviderMock
-            .Setup(p => p.CreateAccount(It.IsAny<IWebDriver>(), It.IsAny<string>(), It.IsAny<string>(),
+            .Setup(p => p.CreateAccountAsync(It.IsAny<IPage>(), It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()))
-            .Returns(new AccountCreationResult("test@outlook.com", "pass"));
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCreationResult("test@outlook.com", "pass"));
 
-        var result = manager.CreateOutlookAccount(
+        var result = await manager.CreateOutlookAccountAsync(
             username: "testuser", password: "P@ss123",
             firstName: "John", lastName: "Doe",
             country: "US", birthdate: "1-1-1990");
@@ -237,24 +240,24 @@ public class RegMailNetManagerTests
     }
 
     [Fact]
-    public void CreateOutlookAccount_NoInfo_GeneratesAndCallsProvider()
+    public async Task CreateOutlookAccount_NoInfo_GeneratesAndCallsProvider()
     {
         var manager = CreateManager(
             captchaKeys: new Dictionary<string, string> { ["capsolver"] = "token" });
 
         _outlookProviderMock
-            .Setup(p => p.CreateAccount(It.IsAny<IWebDriver>(), It.IsAny<string>(), It.IsAny<string>(),
+            .Setup(p => p.CreateAccountAsync(It.IsAny<IPage>(), It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()))
-            .Returns(new AccountCreationResult("generated@outlook.com", "generated"));
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCreationResult("generated@outlook.com", "generated"));
 
-        var result = manager.CreateOutlookAccount();
+        var result = await manager.CreateOutlookAccountAsync();
 
         result.Email.Should().Be("generated@outlook.com");
     }
 
     [Fact]
-    public void CreateGmailAccount_WithValidKeys_CallsProvider()
+    public async Task CreateGmailAccount_WithValidKeys_CallsProvider()
     {
         var manager = CreateManager(
             smsKeys: new Dictionary<string, Dictionary<string, string>>
@@ -263,13 +266,13 @@ public class RegMailNetManagerTests
             });
 
         _gmailProviderMock
-            .Setup(p => p.CreateAccount(It.IsAny<IWebDriver>(), It.IsAny<ISmsServiceFactory>(),
+            .Setup(p => p.CreateAccountAsync(It.IsAny<IPage>(), It.IsAny<ISmsServiceFactory>(),
                 It.IsAny<Dictionary<string, string>>(), It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string>()))
-            .Returns(new AccountCreationResult("test@gmail.com", "pass"));
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCreationResult("test@gmail.com", "pass"));
 
-        var result = manager.CreateGmailAccount(
+        var result = await manager.CreateGmailAccountAsync(
             username: "testuser", password: "P@ss123",
             firstName: "John", lastName: "Doe",
             birthdate: "1-1-1990");
@@ -278,7 +281,7 @@ public class RegMailNetManagerTests
     }
 
     [Fact]
-    public void CreateYahooAccount_WithValidKeys_CallsProvider()
+    public async Task CreateYahooAccount_WithValidKeys_CallsProvider()
     {
         var manager = CreateManager(
             captchaKeys: new Dictionary<string, string> { ["capsolver"] = "token" },
@@ -288,13 +291,13 @@ public class RegMailNetManagerTests
             });
 
         _yahooProviderMock
-            .Setup(p => p.CreateAccount(It.IsAny<IWebDriver>(), It.IsAny<ISmsServiceFactory>(),
+            .Setup(p => p.CreateAccountAsync(It.IsAny<IPage>(), It.IsAny<ISmsServiceFactory>(),
                 It.IsAny<Dictionary<string, string>>(), It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string>()))
-            .Returns(new AccountCreationResult("test@yahoo.com", "pass"));
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCreationResult("test@yahoo.com", "pass"));
 
-        var result = manager.CreateYahooAccount(
+        var result = await manager.CreateYahooAccountAsync(
             username: "testuser", password: "P@ss123",
             firstName: "John", lastName: "Doe",
             birthdate: "1-1-1990");
@@ -303,7 +306,7 @@ public class RegMailNetManagerTests
     }
 
     [Fact]
-    public void CreateYahooAccount_NoCaptchaKey_ThrowsArgumentException()
+    public async Task CreateYahooAccount_NoCaptchaKey_ThrowsArgumentException()
     {
         var manager = CreateManager(
             smsKeys: new Dictionary<string, Dictionary<string, string>>
@@ -311,34 +314,34 @@ public class RegMailNetManagerTests
                 ["smspool"] = new() { ["token"] = "abc" }
             });
 
-        var act = () => manager.CreateYahooAccount(
+        var act = () => manager.CreateYahooAccountAsync(
             username: "testuser", password: "P@ss123",
             firstName: "John", lastName: "Doe",
             birthdate: "1-1-1990");
 
-        act.Should().Throw<ArgumentException>()
+        await act.Should().ThrowAsync<ArgumentException>()
             .WithMessage("*No captcha key*");
     }
 
     [Fact]
-    public void CreateYahooAccount_NoSmsKey_ThrowsArgumentException()
+    public async Task CreateYahooAccount_NoSmsKey_ThrowsArgumentException()
     {
         var manager = CreateManager(
             captchaKeys: new Dictionary<string, string> { ["capsolver"] = "token" });
 
-        var act = () => manager.CreateYahooAccount(
+        var act = () => manager.CreateYahooAccountAsync(
             username: "testuser", password: "P@ss123",
             firstName: "John", lastName: "Doe",
             birthdate: "1-1-1990");
 
-        act.Should().Throw<ArgumentException>()
+        await act.Should().ThrowAsync<ArgumentException>()
             .WithMessage("*No SMS API keys*");
     }
 
     // ── SMS key selection ─────────────────────────────────────────────────────
 
     [Fact]
-    public void GetSmsKey_DefaultServicePresent_UsesDefault()
+    public async Task GetSmsKey_DefaultServicePresent_UsesDefault()
     {
         var manager = CreateManager(
             smsKeys: new Dictionary<string, Dictionary<string, string>>
@@ -348,40 +351,43 @@ public class RegMailNetManagerTests
             });
 
         _gmailProviderMock
-            .Setup(p => p.CreateAccount(It.IsAny<IWebDriver>(), It.IsAny<ISmsServiceFactory>(),
+            .Setup(p => p.CreateAccountAsync(It.IsAny<IPage>(), It.IsAny<ISmsServiceFactory>(),
                 It.IsAny<Dictionary<string, string>>(), It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string>()))
-            .Returns(new AccountCreationResult("test@gmail.com", "pass"));
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCreationResult("test@gmail.com", "pass"));
 
-        manager.CreateGmailAccount();
+        await manager.CreateGmailAccountAsync();
 
         _gmailProviderMock.Verify(
-            p => p.CreateAccount(It.IsAny<IWebDriver>(), It.IsAny<ISmsServiceFactory>(),
+            p => p.CreateAccountAsync(It.IsAny<IPage>(), It.IsAny<ISmsServiceFactory>(),
                 It.Is<Dictionary<string, string>>(d => d["name"] == "smspool"),
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private RegMailNetManager CreateManager(
-        string browser = "firefox",
         Dictionary<string, string>? captchaKeys = null,
         Dictionary<string, Dictionary<string, string>>? smsKeys = null,
         List<string>? proxies = null,
         bool autoProxy = false,
+        bool headless = true,
+        IBrowserFactory? browserFactory = null,
+        ISmsServiceFactory? smsServiceFactory = null,
         IFreeProxyService? freeProxyService = null)
     {
         return new RegMailNetManager(
-            browser: browser,
             captchaKeys: captchaKeys,
             smsKeys: smsKeys,
             proxies: proxies,
             autoProxy: autoProxy,
-            webDriverFactory: _webDriverFactoryMock.Object,
-            smsServiceFactory: _smsServiceFactoryMock.Object,
+            headless: headless,
+            browserFactory: browserFactory ?? _browserFactoryMock.Object,
+            smsServiceFactory: smsServiceFactory ?? _smsServiceFactoryMock.Object,
             freeProxyService: freeProxyService,
             outlookProvider: _outlookProviderMock.Object,
             gmailProvider: _gmailProviderMock.Object,

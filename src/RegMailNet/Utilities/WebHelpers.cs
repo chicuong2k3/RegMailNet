@@ -1,94 +1,146 @@
-using OpenQA.Selenium;
-using OpenQA.Selenium.Interactions;
-using OpenQA.Selenium.Support.UI;
+using Microsoft.Playwright;
 
 namespace RegMailNet.Utilities;
 
+/// <summary>
+/// Reusable Playwright interaction helpers with auto-wait built in.
+/// Playwright's auto-wait eliminates the need for manual WebDriverWait patterns.
+/// </summary>
 public static class WebHelpers
 {
-    public static void SafeClick(IWebElement element)
+    /// <summary>
+    /// Click an element identified by a CSS selector, waiting for it to be visible and enabled.
+    /// </summary>
+    public static async Task ClickAsync(IPage page, string selector, int timeoutSeconds = 10)
     {
-        try
+        await page.Locator(selector).ClickAsync(new LocatorClickOptions
         {
-            element.Click();
-        }
-        catch (WebDriverException)
-        {
-            // Fall back handled by caller if needed
-        }
+            Timeout = timeoutSeconds * 1000,
+        });
     }
 
-    public static void WaitAndClick(IWebDriver driver, By by, int timeoutSeconds = 10)
+    /// <summary>
+    /// Fill a text input identified by a CSS selector, clearing it first.
+    /// </summary>
+    public static async Task FillAsync(IPage page, string selector, string value, int timeoutSeconds = 10)
     {
-        var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(timeoutSeconds));
-        var element = wait.Until(d =>
+        await page.Locator(selector).FillAsync(value, new LocatorFillOptions
+        {
+            Timeout = timeoutSeconds * 1000,
+        });
+    }
+
+    /// <summary>
+    /// Wait for an element to appear, then click it.
+    /// Tries multiple selectors in order; clicks the first one found.
+    /// </summary>
+    public static async Task WaitAndClickAnyAsync(IPage page, string[] selectors, int timeoutSeconds = 5)
+    {
+        foreach (var selector in selectors)
         {
             try
             {
-                var el = d.FindElement(by);
-                return el.Displayed && el.Enabled ? el : null;
+                var locator = page.Locator(selector);
+                await locator.WaitForAsync(new LocatorWaitForOptions
+                {
+                    State = WaitForSelectorState.Visible,
+                    Timeout = timeoutSeconds * 1000,
+                });
+                await locator.ClickAsync();
+                return;
             }
-            catch (NoSuchElementException)
+            catch (TimeoutException)
             {
-                return null;
+                continue;
             }
-        });
-        SafeClick(element!);
+        }
+        throw new TimeoutException($"None of the selectors matched within {timeoutSeconds}s: {string.Join(", ", selectors)}");
     }
 
-    public static void SetInputValue(IWebDriver driver, By selector, string value)
+    /// <summary>
+    /// Select an option from a dropdown by its value attribute.
+    /// </summary>
+    public static async Task SelectOptionAsync(IPage page, string selector, string value, int timeoutSeconds = 10)
     {
-        var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
-        var element = wait.Until(d => d.FindElement(selector));
-        element.SendKeys(value);
+        await page.Locator(selector).SelectOptionAsync(new SelectOptionValue { Value = value },
+            new LocatorSelectOptionOptions { Timeout = timeoutSeconds * 1000 });
     }
 
-    public static void TypeInto(IWebDriver driver, By locator, string value)
+    /// <summary>
+    /// Select an option from a dropdown by its label (visible text).
+    /// </summary>
+    public static async Task SelectByTextAsync(IPage page, string selector, string label, int timeoutSeconds = 10)
     {
-        var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
-        var element = wait.Until(d =>
+        await page.Locator(selector).SelectOptionAsync(new SelectOptionValue { Label = label },
+            new LocatorSelectOptionOptions { Timeout = timeoutSeconds * 1000 });
+    }
+
+    /// <summary>
+    /// Select an option from a dropdown by its index.
+    /// </summary>
+    public static async Task SelectByIndexAsync(IPage page, string selector, int index, int timeoutSeconds = 10)
+    {
+        // Get all option elements, then select by the value at the given index
+        var options = await page.Locator($"{selector} option").AllAsync();
+        if (index < 0 || index >= options.Count)
+            throw new ArgumentOutOfRangeException(nameof(index), $"Index {index} out of range (0-{options.Count - 1})");
+
+        var value = await options[index].GetAttributeAsync("value");
+        await page.Locator(selector).SelectOptionAsync(new SelectOptionValue { Value = value },
+            new LocatorSelectOptionOptions { Timeout = timeoutSeconds * 1000 });
+    }
+
+    /// <summary>
+    /// Type text into an element, clearing it first with keyboard shortcuts.
+    /// Scrolls the element into view before typing.
+    /// </summary>
+    public static async Task TypeIntoAsync(IPage page, string selector, string value, int timeoutSeconds = 10)
+    {
+        var locator = page.Locator(selector);
+        await locator.ScrollIntoViewIfNeededAsync(new LocatorScrollIntoViewIfNeededOptions
         {
-            try
-            {
-                var el = d.FindElement(locator);
-                return el.Displayed && el.Enabled ? el : null;
-            }
-            catch (NoSuchElementException)
-            {
-                return null;
-            }
+            Timeout = timeoutSeconds * 1000,
         });
+        await locator.ClickAsync(new LocatorClickOptions { Timeout = timeoutSeconds * 1000 });
+        await page.Keyboard.PressAsync("Control+a");
+        await page.Keyboard.PressAsync("Backspace");
+        await locator.FillAsync(value, new LocatorFillOptions { Timeout = timeoutSeconds * 1000 });
+    }
 
-        var js = (IJavaScriptExecutor)driver;
-        js.ExecuteScript("arguments[0].scrollIntoView({block:'center'});", element);
-
+    /// <summary>
+    /// Check if an element matching the selector exists on the page.
+    /// Returns false if not found within the timeout.
+    /// </summary>
+    public static async Task<bool> ElementExistsAsync(IPage page, string selector, int timeoutSeconds = 3)
+    {
         try
         {
-            element.Click();
+            await page.Locator(selector).WaitForAsync(new LocatorWaitForOptions
+            {
+                State = WaitForSelectorState.Attached,
+                Timeout = timeoutSeconds * 1000,
+            });
+            return true;
         }
-        catch (ElementClickInterceptedException)
+        catch (TimeoutException)
         {
-            js.ExecuteScript("arguments[0].focus();", element);
+            return false;
         }
-
-        element.SendKeys(Keys.Control + "a");
-        element.SendKeys(Keys.Delete);
-        element.SendKeys(value.ToString());
     }
 
-    public static void ActionChainClick(IWebDriver driver, IWebElement element)
+    /// <summary>
+    /// Wait for navigation to a URL containing the specified string.
+    /// </summary>
+    public static async Task WaitForUrlContainsAsync(IPage page, string urlPart, int timeoutSeconds = 30)
     {
-        try
+        await page.WaitForURLAsync($"**/*{urlPart}**", new PageWaitForURLOptions
         {
-            new Actions(driver)
-                .MoveToElement(element)
-                .Pause(TimeSpan.FromMilliseconds(50))
-                .Click()
-                .Perform();
-        }
-        catch (ElementClickInterceptedException)
-        {
-            ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].click();", element);
-        }
+            Timeout = timeoutSeconds * 1000,
+        });
     }
+
+    /// <summary>
+    /// Get the current page URL.
+    /// </summary>
+    public static string GetUrl(IPage page) => page.Url;
 }

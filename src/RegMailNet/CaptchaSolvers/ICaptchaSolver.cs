@@ -1,14 +1,17 @@
-using OpenQA.Selenium.Chrome;
-using OpenQA.Selenium.Firefox;
-using OpenQA.Selenium;
+using Microsoft.Playwright;
 
 namespace RegMailNet.CaptchaSolvers;
 
+/// <summary>
+/// Configures a captcha-solving browser extension on a Playwright browser context.
+/// </summary>
 public interface ICaptchaSolver
 {
     string Name { get; }
-    void ConfigureChromeExtension(ChromeOptions options, string extensionBasePath);
-    void ConfigureFirefoxExtension(FirefoxDriver driver, string extensionBasePath);
-    void ConfigureApiKey(string extensionBasePath, string apiKey);
-    void PostDriverInit(IWebDriver driver, string apiKey);
+
+    /// <summary>
+    /// Install and configure the captcha extension on the given browser context.
+    /// Must be called before navigating to pages that need captcha solving.
+    /// </summary>
+    Task ConfigureAsync(IBrowserContext context, string extensionBasePath, string apiKey);
 }

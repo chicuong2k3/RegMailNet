@@ -1,12 +1,13 @@
-using OpenQA.Selenium;
+using Microsoft.Playwright;
 
 namespace RegMailNet.EmailProviders;
 
 public interface IEmailProvider
 {
     string ProviderName { get; }
+
     Task<AccountCreationResult> CreateAccountAsync(
-        IWebDriver driver,
+        IPage page,
         string username,
         string password,
         string firstName,

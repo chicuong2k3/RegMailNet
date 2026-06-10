@@ -1,7 +1,5 @@
 using System.Text.RegularExpressions;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Chrome;
-using OpenQA.Selenium.Firefox;
+using Microsoft.Playwright;
 
 namespace RegMailNet.CaptchaSolvers;
 
@@ -9,39 +7,25 @@ public class CapsolverExtension : ICaptchaSolver
 {
     public string Name => "capsolver";
 
-    public void ConfigureChromeExtension(ChromeOptions options, string extensionBasePath)
-    {
-        var extPath = Path.Combine(extensionBasePath, "capsolver-chrome-extension");
-        options.AddArgument($"--load-extension={extPath}");
-    }
-
-    public void ConfigureFirefoxExtension(FirefoxDriver driver, string extensionBasePath)
+    public async Task ConfigureAsync(IBrowserContext context, string extensionBasePath, string apiKey)
     {
         var xpiPath = Path.Combine(extensionBasePath, "capsolver_captcha_solver-1.10.4.xpi");
-        driver.InstallAddOn(xpiPath);
+        if (!File.Exists(xpiPath))
+            throw new FileNotFoundException($"Capsolver extension not found: {xpiPath}");
 
-        driver.Navigate().GoToUrl("https://www.google.com");
-        var capsolverSrc = driver.FindElement(By.XPath("/html/script[2]")).GetAttribute("src");
-        var capsolverExtId = capsolverSrc.Split('/')[2];
-        driver.Navigate().GoToUrl($"moz-extension://{capsolverExtId}/www/index.html#/popup");
-        Thread.Sleep(5000);
+        await context.AddInitScriptAsync($@"
+            // Pre-configure capsolver API key
+            window.addEventListener('load', () => {{
+                const input = document.querySelector('input[placeholder=""Please input your API key""]');
+                if (input) {{
+                    input.value = '{apiKey}';
+                    input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                }}
+            }});
+        ");
 
-        var apiKeyInput = driver.FindElement(By.XPath("//input[@placeholder=\"Please input your API key\"]"));
-        apiKeyInput.SendKeys(driver.ToString() ?? string.Empty);
-    }
-
-    public void ConfigureApiKey(string extensionBasePath, string apiKey)
-    {
-        var configPath = Path.Combine(extensionBasePath, "capsolver-chrome-extension", "assets", "config.js");
-        if (!File.Exists(configPath)) return;
-
-        var content = File.ReadAllText(configPath);
-        var updated = Regex.Replace(content, @"apiKey:\s*'[^']*'", $"apiKey: '{apiKey}'");
-        File.WriteAllText(configPath, updated);
-    }
-
-    public void PostDriverInit(IWebDriver driver, string apiKey)
-    {
-        // No-op for capsolver
+        // Note: Firefox .xpi installation is handled at browser launch time via args,
+        // not at context level. The extension path should be passed to the browser factory.
+        // For now, we configure via init script as a fallback.
     }
 }

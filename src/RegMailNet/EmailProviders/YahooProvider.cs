@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Support.UI;
+using Microsoft.Playwright;
 using RegMailNet.SmsServices;
 using RegMailNet.Utilities;
 
@@ -8,20 +7,20 @@ namespace RegMailNet.EmailProviders;
 
 public class YahooProvider : IEmailProvider
 {
-    private static class Selectors
+    private static class Sel
     {
-        public static readonly By Username = By.Id("usernamereg-userId");
-        public static readonly By Password = By.Id("usernamereg-password");
-        public static readonly By FirstName = By.Id("usernamereg-firstName");
-        public static readonly By LastName = By.Id("usernamereg-lastName");
-        public static readonly By BirthMonth = By.Id("usernamereg-month");
-        public static readonly By BirthDay = By.Id("usernamereg-day");
-        public static readonly By BirthYear = By.Id("usernamereg-year");
-        public static readonly By SubmitButton = By.Id("reg-submit-button");
-        public static readonly By PhoneInput = By.Id("usernamereg-phone");
-        public static readonly By RecaptchaFrame = By.Id("recaptcha-iframe");
-        public static readonly By FuncaptchaFrame = By.Id("arkose-iframe");
-        public static readonly By VerificationCode = By.Id("verification-code-field");
+        public const string Username = "#usernamereg-userId";
+        public const string Password = "#usernamereg-password";
+        public const string FirstName = "#usernamereg-firstName";
+        public const string LastName = "#usernamereg-lastName";
+        public const string BirthMonth = "#usernamereg-month";
+        public const string BirthDay = "#usernamereg-day";
+        public const string BirthYear = "#usernamereg-year";
+        public const string SubmitButton = "#reg-submit-button";
+        public const string PhoneInput = "#usernamereg-phone";
+        public const string RecaptchaFrame = "#recaptcha-iframe";
+        public const string FuncaptchaFrame = "#arkose-iframe";
+        public const string VerificationCode = "#verification-code-field";
     }
 
     private const string Url = "https://login.yahoo.com/account/create";
@@ -39,8 +38,22 @@ public class YahooProvider : IEmailProvider
         _logger = logger;
     }
 
-    public virtual AccountCreationResult CreateAccount(
-        IWebDriver driver,
+    public virtual async Task<AccountCreationResult> CreateAccountAsync(
+        IPage page,
+        string username,
+        string password,
+        string firstName,
+        string lastName,
+        string month,
+        string day,
+        string year,
+        CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException("Use the overload with ISmsServiceFactory and smsKey");
+    }
+
+    public virtual async Task<AccountCreationResult> CreateAccountAsync(
+        IPage page,
         ISmsServiceFactory smsServiceFactory,
         Dictionary<string, string> smsKey,
         string username,
@@ -49,38 +62,36 @@ public class YahooProvider : IEmailProvider
         string lastName,
         string month,
         string day,
-        string year)
+        string year,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             _logger.LogInformation("Starting Yahoo account creation process");
-            driver.Navigate().GoToUrl(Url);
+            await page.GotoAsync(Url);
 
-            WebHelpers.SetInputValue(driver, Selectors.Username, username);
-            WebHelpers.SetInputValue(driver, Selectors.Password, password);
-            WebHelpers.SetInputValue(driver, Selectors.FirstName, firstName);
-            WebHelpers.SetInputValue(driver, Selectors.LastName, lastName);
+            await WebHelpers.FillAsync(page, Sel.Username, username);
+            await WebHelpers.FillAsync(page, Sel.Password, password);
+            await WebHelpers.FillAsync(page, Sel.FirstName, firstName);
+            await WebHelpers.FillAsync(page, Sel.LastName, lastName);
 
-            var monthSelect = new OpenQA.Selenium.Support.UI.SelectElement(
-                new WebDriverWait(driver, TimeSpan.FromSeconds(WaitTimeout))
-                    .Until(d => d.FindElement(Selectors.BirthMonth)));
-            monthSelect.SelectByIndex(int.Parse(month));
+            await WebHelpers.SelectByIndexAsync(page, Sel.BirthMonth, int.Parse(month));
 
-            WebHelpers.SetInputValue(driver, Selectors.BirthDay, day);
-            WebHelpers.SetInputValue(driver, Selectors.BirthYear, year);
+            await WebHelpers.FillAsync(page, Sel.BirthDay, day);
+            await WebHelpers.FillAsync(page, Sel.BirthYear, year);
 
-            WebHelpers.WaitAndClick(driver, Selectors.SubmitButton);
+            await WebHelpers.ClickAsync(page, Sel.SubmitButton);
 
             var smsProvider = smsServiceFactory.Create(smsKey, "yahoo");
-            var phoneInfo = HandlePhoneSubmission(driver, smsKey, smsProvider);
+            var phoneInfo = await HandlePhoneSubmissionAsync(page, smsProvider);
 
-            if (!driver.Url.Contains("phone-verify"))
-                HandleCaptcha(driver);
+            if (!page.Url.Contains("phone-verify"))
+                await HandleCaptchaAsync(page);
 
-            VerifyPhone(driver, smsKey, smsProvider, phoneInfo);
+            await VerifyPhoneAsync(page, smsProvider, phoneInfo);
 
-            new WebDriverWait(driver, TimeSpan.FromSeconds(WaitTimeout))
-                .Until(d => d.Url.Contains("create/success") || d.Url.Contains("account/upsell/webauth"));
+            await page.WaitForURLAsync("**/*create/success**|**/*account/upsell/webauth**",
+                new PageWaitForURLOptions { Timeout = WaitTimeout * 1000 });
 
             _logger.LogInformation("Yahoo account created successfully");
             return new AccountCreationResult($"{username}@yahoo.com", password);
@@ -90,78 +101,70 @@ public class YahooProvider : IEmailProvider
             _logger.LogError(ex, "Yahoo account creation failed");
             throw new AccountCreationException("Yahoo account creation failed", ex);
         }
-        finally
-        {
-            driver.Quit();
-        }
     }
 
-    public Task<AccountCreationResult> CreateAccountAsync(IWebDriver driver, string username, string password, string firstName, string lastName, string month, string day, string year, CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException("Use the overload with ISmsServiceFactory and smsKey");
-    }
-
-    private void HandleCaptcha(IWebDriver driver)
+    private async Task HandleCaptchaAsync(IPage page)
     {
         try
         {
-            new WebDriverWait(driver, TimeSpan.FromSeconds(CaptchaSolveTimeout))
-                .Until(d => { d.SwitchTo().Frame(driver.FindElement(Selectors.RecaptchaFrame)); return true; });
+            var recaptchaFrame = page.FrameLocator(Sel.RecaptchaFrame);
             try
             {
-                var completeBtn = new WebDriverWait(driver, TimeSpan.FromSeconds(CaptchaSolveTimeout))
-                    .Until(d => d.FindElement(By.Id("recaptcha-submit")));
-                WebHelpers.SafeClick(completeBtn);
+                var completeBtn = recaptchaFrame.Locator("#recaptcha-submit");
+                await completeBtn.WaitForAsync(new LocatorWaitForOptions
+                {
+                    State = WaitForSelectorState.Visible,
+                    Timeout = CaptchaSolveTimeout * 1000,
+                });
+                await completeBtn.ClickAsync();
             }
-            finally
+            catch (TimeoutException)
             {
-                driver.SwitchTo().DefaultContent();
+                // Try funcaptcha fallback
+                var funcaptchaFrame = page.FrameLocator(Sel.FuncaptchaFrame);
+                await funcaptchaFrame.Locator("h2:has-text('Security check complete')").WaitForAsync(
+                    new LocatorWaitForOptions
+                    {
+                        State = WaitForSelectorState.Visible,
+                        Timeout = CaptchaSolveTimeout * 1000,
+                    });
+                await funcaptchaFrame.Locator("#arkose-submit").ClickAsync();
             }
         }
-        catch (WebDriverException)
+        catch (Exception ex)
         {
-            try
-            {
-                new WebDriverWait(driver, TimeSpan.FromSeconds(WaitTimeout))
-                    .Until(d => { d.SwitchTo().Frame(driver.FindElement(Selectors.FuncaptchaFrame)); return true; });
-                new WebDriverWait(driver, TimeSpan.FromSeconds(CaptchaSolveTimeout))
-                    .Until(d => d.FindElement(By.XPath("//h2[contains(., 'Security check complete')]")).Displayed);
-                WebHelpers.SafeClick(driver.FindElement(By.Id("arkose-submit")));
-            }
-            finally
-            {
-                driver.SwitchTo().DefaultContent();
-            }
+            _logger.LogError(ex, "Captcha handling failed");
+            throw new AccountCreationException("Captcha challenge failed", ex);
         }
     }
 
-    private Dictionary<string, string> HandlePhoneSubmission(IWebDriver driver, Dictionary<string, string> smsKey, ISmsService smsProvider)
+    private async Task<Dictionary<string, string>> HandlePhoneSubmissionAsync(IPage page, ISmsService smsProvider)
     {
         var phoneInfo = new Dictionary<string, string>();
         try
         {
-            var phoneResult = smsProvider.GetPhoneAsync(sendPrefix: false).GetAwaiter().GetResult();
+            var phoneResult = await smsProvider.GetPhoneAsync(sendPrefix: false);
             phoneInfo["phone"] = phoneResult.PhoneNumber;
             if (phoneResult.OrderId != null)
                 phoneInfo["order_id"] = phoneResult.OrderId;
 
-            WebHelpers.SetInputValue(driver, Selectors.PhoneInput, phoneResult.PhoneNumber);
+            await WebHelpers.FillAsync(page, Sel.PhoneInput, phoneResult.PhoneNumber);
 
-            By[] nextButtonSelectors = [By.Id("reg-sms-button"), By.Id("reg-submit-button")];
+            string[] nextButtonSelectors = ["#reg-sms-button", "#reg-submit-button"];
             foreach (var selector in nextButtonSelectors)
             {
                 try
                 {
-                    WebHelpers.WaitAndClick(driver, selector, 10);
+                    await WebHelpers.ClickAsync(page, selector, 10);
                     return phoneInfo;
                 }
-                catch (WebDriverException)
+                catch (TimeoutException)
                 {
                     continue;
                 }
             }
 
-            throw new WebDriverException("No valid next button found after phone entry");
+            throw new TimeoutException("No valid next button found after phone entry");
         }
         catch (Exception ex) when (ex is not AccountCreationException)
         {
@@ -170,19 +173,24 @@ public class YahooProvider : IEmailProvider
         }
     }
 
-    private void VerifyPhone(IWebDriver driver, Dictionary<string, string> smsKey, ISmsService smsProvider, Dictionary<string, string> phoneInfo)
+    private async Task VerifyPhoneAsync(IPage page, ISmsService smsProvider, Dictionary<string, string> phoneInfo)
     {
         try
         {
             var orderId = phoneInfo.GetValueOrDefault("order_id");
             var phone = phoneInfo.GetValueOrDefault("phone");
             var code = orderId != null
-                ? smsProvider.GetCodeAsync(orderId).GetAwaiter().GetResult()
-                : smsProvider.GetCodeAsync(phone!).GetAwaiter().GetResult();
+                ? await smsProvider.GetCodeAsync(orderId)
+                : await smsProvider.GetCodeAsync(phone!);
 
-            var codeInput = new WebDriverWait(driver, TimeSpan.FromSeconds(WaitTimeout))
-                .Until(d => d.FindElement(Selectors.VerificationCode));
-            codeInput.SendKeys(code + Keys.Enter);
+            var codeInput = page.Locator(Sel.VerificationCode);
+            await codeInput.WaitForAsync(new LocatorWaitForOptions
+            {
+                State = WaitForSelectorState.Visible,
+                Timeout = WaitTimeout * 1000,
+            });
+            await codeInput.FillAsync(code);
+            await page.Keyboard.PressAsync("Enter");
         }
         catch (Exception ex)
         {

@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using RegMailNet.Browser;
 using RegMailNet.EmailProviders;
 using RegMailNet.SmsServices;
 using RegMailNet.Utilities;
-using RegMailNet.WebDriver;
 
 namespace RegMailNet.Configuration;
 
@@ -14,8 +14,7 @@ public static class ServiceCollectionExtensions
         services.Configure<RegMailNetOptions>(configuration.GetSection(RegMailNetOptions.SectionName));
 
         services.AddSingleton<DataGenerator>();
-        services.AddSingleton<IProxyAuthExtensionBuilder, ProxyAuthExtensionBuilder>();
-        services.AddSingleton<IWebDriverFactory, WebDriverFactory>();
+        services.AddSingleton<IBrowserFactory, CamoufoxBrowserFactory>();
         services.AddSingleton<IFreeProxyService, FreeProxyService>();
 
         services.AddSingleton<OutlookProvider>();
