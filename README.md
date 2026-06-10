@@ -2,6 +2,15 @@
 
 A .NET library for automated email account creation on Gmail, Outlook, and Yahoo. It uses Selenium WebDriver for browser automation and integrates with third-party SMS and captcha-solving services to handle phone verification and captcha challenges.
 
+## Features
+
+- Automated account creation for Gmail, Outlook/Hotmail, and Yahoo
+- Auto-generated random user details (names, passwords, countries, birthdates)
+- Proxy support — authenticated proxies, proxy lists, and free proxy auto-fetch
+- Captcha solving via Capsolver and Nopecha browser extensions
+- SMS verification via SmsPool, 5sim, and GetsmsCode
+- Dependency injection with `Microsoft.Extensions.DependencyInjection`
+
 ## Project Structure
 
 ```
@@ -88,7 +97,7 @@ The library follows a layered architecture with dependency injection throughout.
 | **SMS Services** | Factory-based. `SmsServiceFactory` resolves a concrete service (`SmsPoolService`, `FiveSimService`, `GetsmsCodeService`) by name. Each service wraps a third-party API for renting phone numbers and reading verification codes. |
 | **Captcha Solvers** | `ICaptchaSolver` implementations configure browser extensions (Capsolver, Nopecha) that intercept captcha challenges during Selenium sessions. |
 | **WebDriver** | `WebDriverFactory` creates Chrome, Firefox, or Undetected ChromeDriver instances with optional proxy auth and captcha extensions. `ProxyAuthExtensionBuilder` generates a Chrome extension to inject proxy credentials. |
-| **Utilities** | `DataGenerator` (uses the Bogus library) produces random user profiles. `WebHelpers` provides reusable Selenium interaction methods. |
+| **Utilities** | `DataGenerator` (uses the Bogus library) produces random user profiles. `FreeProxyService` fetches free proxies from public lists. `WebHelpers` provides reusable Selenium interaction methods. |
 
 ### Account Creation Flow
 
@@ -157,13 +166,27 @@ This registers `DataGenerator`, `WebDriverFactory`, `ProxyAuthExtensionBuilder`,
 | `Microsoft.Extensions.Options` | Options pattern |
 | `Microsoft.Extensions.Http` | `IHttpClientFactory` for SMS APIs |
 
+## Captcha Solver Extensions
+
+The library loads browser extensions for captcha solving at runtime. You need to populate the `captcha_solvers/` directory before using captcha-dependent providers (Outlook, Yahoo).
+
+```powershell
+pwsh scripts/download-extensions.ps1
+```
+
+Or download manually from the [ninjemail repo](https://github.com/david96182/ninjemail/tree/main/ninjemail/captcha_solvers). See `src/RegMailNet/captcha_solvers/README.md` for details.
+
 ## Testing
 
 ```bash
 dotnet test
 ```
 
-Tests use xUnit, Moq, and FluentAssertions. The test suite verifies manager logic, data generation, and SMS service response parsing without running actual browser automation.
+Tests use xUnit, Moq, and FluentAssertions. The suite covers:
+- **Manager** — initialization, browser validation, captcha/SMS key resolution, proxy handling, account creation delegation
+- **SMS services** — `SmsPoolService`, `FiveSimService`, `GetsmsCodeService` (HTTP request/response, retry logic, error handling)
+- **SMS factory** — service resolution, per-provider service IDs
+- **Utilities** — `DataGenerator`, `MonthsMapping`, `FreeProxyService`
 
 ## Ported From
 
