@@ -16,6 +16,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DataGenerator>();
         services.AddSingleton<IProxyAuthExtensionBuilder, ProxyAuthExtensionBuilder>();
         services.AddSingleton<IWebDriverFactory, WebDriverFactory>();
+        services.AddSingleton<IFreeProxyService, FreeProxyService>();
 
         services.AddSingleton<OutlookProvider>();
         services.AddSingleton<GmailProvider>();

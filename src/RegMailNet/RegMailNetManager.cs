@@ -13,6 +13,7 @@ public class RegMailNetManager
 {
     private readonly IWebDriverFactory _webDriverFactory;
     private readonly ISmsServiceFactory _smsServiceFactory;
+    private readonly IFreeProxyService? _freeProxyService;
     private readonly OutlookProvider _outlookProvider;
     private readonly GmailProvider _gmailProvider;
     private readonly YahooProvider _yahooProvider;
@@ -34,6 +35,7 @@ public class RegMailNetManager
         bool autoProxy = false,
         IWebDriverFactory? webDriverFactory = null,
         ISmsServiceFactory? smsServiceFactory = null,
+        IFreeProxyService? freeProxyService = null,
         OutlookProvider? outlookProvider = null,
         GmailProvider? gmailProvider = null,
         YahooProvider? yahooProvider = null,
@@ -55,6 +57,7 @@ public class RegMailNetManager
 
         _webDriverFactory = webDriverFactory ?? new WebDriverFactory(new ProxyAuthExtensionBuilder(), Microsoft.Extensions.Logging.Abstractions.NullLogger<WebDriverFactory>.Instance);
         _smsServiceFactory = smsServiceFactory ?? throw new ArgumentNullException(nameof(smsServiceFactory));
+        _freeProxyService = freeProxyService;
         _outlookProvider = outlookProvider ?? new OutlookProvider(Microsoft.Extensions.Logging.Abstractions.NullLogger<OutlookProvider>.Instance);
         _gmailProvider = gmailProvider ?? new GmailProvider(_smsServiceFactory, Microsoft.Extensions.Logging.Abstractions.NullLogger<GmailProvider>.Instance);
         _yahooProvider = yahooProvider ?? new YahooProvider(_smsServiceFactory, Microsoft.Extensions.Logging.Abstractions.NullLogger<YahooProvider>.Instance);
@@ -127,10 +130,13 @@ public class RegMailNetManager
         if (_proxies?.Count > 0)
             return _proxies[Random.Shared.Next(_proxies.Count)];
 
-        if (_autoProxy)
+        if (_autoProxy && _freeProxyService != null)
         {
             _logger.LogInformation("Getting Free Proxy..");
-            // Free proxy fetching would go here
+            var proxy = _freeProxyService.GetProxyAsync().GetAwaiter().GetResult();
+            if (proxy != null)
+                return proxy;
+
             _logger.LogInformation("There are no free proxies available.");
         }
 

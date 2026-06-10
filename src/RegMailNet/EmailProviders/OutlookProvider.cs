@@ -40,7 +40,7 @@ public class OutlookProvider : IEmailProvider
         _logger = logger;
     }
 
-    public AccountCreationResult CreateAccount(
+    public virtual AccountCreationResult CreateAccount(
         IWebDriver driver,
         string username,
         string password,

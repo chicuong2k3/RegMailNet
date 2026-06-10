@@ -39,7 +39,7 @@ public class YahooProvider : IEmailProvider
         _logger = logger;
     }
 
-    public AccountCreationResult CreateAccount(
+    public virtual AccountCreationResult CreateAccount(
         IWebDriver driver,
         ISmsServiceFactory smsServiceFactory,
         Dictionary<string, string> smsKey,

@@ -26,4 +26,9 @@
     </None>
   </ItemGroup>
 
+  <!-- Copy captcha solver extension files to output directory -->
+  <ItemGroup>
+    <Content Include="captcha_solvers/**/*" CopyToOutputDirectory="PreserveNewest" SkipUnchangedFiles="true" />
+  </ItemGroup>
+
 </Project>
