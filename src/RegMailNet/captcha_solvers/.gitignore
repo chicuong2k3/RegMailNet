@@ -1,0 +1,5 @@
+# Ignore captcha solver extension files (third-party binaries)
+# Run scripts/download-extensions.ps1 to populate this directory
+*
+!.gitignore
+!README.md
