@@ -4,7 +4,7 @@ using RegMailNet.Configuration;
 using RegMailNet.EmailProviders;
 using RegMailNet.SmsServices;
 using RegMailNet.Utilities;
-using RegMailNet.WebDriver;
+using RegMailNet.Browser;
 using RegMailNet.Ui.Services;
 
 namespace RegMailNet.Ui
@@ -50,7 +50,6 @@ namespace RegMailNet.Ui
 
             var options = Microsoft.Extensions.Options.Options.Create(new RegMailNetOptions
             {
-                SupportedBrowsers = new List<string> { "firefox", "chrome", "undetected-chrome" },
                 CaptchaServicesSupported = new List<string> { "capsolver", "nopecha" },
                 DefaultCaptchaService = "capsolver",
                 SmsServicesSupported = new List<string> { "getsmscode", "smspool", "5sim" },
@@ -65,9 +64,10 @@ namespace RegMailNet.Ui
             // Register RegMailNetManager
             builder.Services.AddSingleton(sp =>
             {
+                var browserFactory = sp.GetRequiredService<IBrowserFactory>();
                 var smsFactory = sp.GetRequiredService<ISmsServiceFactory>();
                 return new RegMailNetManager(
-                    browser: settingsService.Settings.Browser,
+                    browserFactory: browserFactory,
                     captchaKeys: captchaKeys,
                     smsKeys: smsKeys,
                     proxies: settingsService.Settings.Proxies,
@@ -81,8 +81,7 @@ namespace RegMailNet.Ui
             builder.Services.AddSingleton<OutlookProvider>();
             builder.Services.AddSingleton<GmailProvider>();
             builder.Services.AddSingleton<YahooProvider>();
-            builder.Services.AddSingleton<IWebDriverFactory, WebDriverFactory>();
-            builder.Services.AddSingleton<IProxyAuthExtensionBuilder, ProxyAuthExtensionBuilder>();
+            builder.Services.AddSingleton<IBrowserFactory, CamoufoxBrowserFactory>();
 
             // Register UI services
             builder.Services.AddSingleton<AccountHistoryService>();

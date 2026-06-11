@@ -44,21 +44,11 @@
             <BbCardTitle>Options</BbCardTitle>
         </BbCardHeader>
         <BbCardContent>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="text-sm text-muted-foreground mb-1 block">Browser</label>
-                    <select @bind="selectedBrowser" class="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm">
-                        <option value="firefox">Firefox</option>
-                        <option value="chrome">Chrome</option>
-                        <option value="undetected-chrome">Undetected Chrome</option>
-                    </select>
-                </div>
-                <div class="flex items-end">
-                    <label class="flex items-center gap-2 text-sm cursor-pointer">
-                        <input type="checkbox" @bind="useProxy" class="rounded" />
-                        Use proxy
-                    </label>
-                </div>
+            <div class="flex items-center">
+                <label class="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" @bind="useProxy" class="rounded" />
+                    Use proxy
+                </label>
             </div>
         </BbCardContent>
     </BbCard>
@@ -96,17 +86,11 @@
 
 @code {
     private string? selectedProvider;
-    private string selectedBrowser = "firefox";
     private bool useProxy = true;
     private bool isCreating;
     private string? errorMessage;
     private string? successEmail;
     private string? successPassword;
-
-    protected override void OnInitialized()
-    {
-        selectedBrowser = SettingsService.Settings.Browser;
-    }
 
     private async Task CreateAccountAsync()
     {
@@ -122,9 +106,9 @@
         {
             AccountCreationResult result = selectedProvider switch
             {
-                "outlook" => await Task.Run(() => Manager.CreateOutlookAccount(useProxy: useProxy)),
-                "gmail" => await Task.Run(() => Manager.CreateGmailAccount(useProxy: useProxy)),
-                "yahoo" => await Task.Run(() => Manager.CreateYahooAccount(useProxy: useProxy)),
+                "outlook" => await Manager.CreateOutlookAccountAsync(useProxy: useProxy),
+                "gmail" => await Manager.CreateGmailAccountAsync(useProxy: useProxy),
+                "yahoo" => await Manager.CreateYahooAccountAsync(useProxy: useProxy),
                 _ => throw new ArgumentException("Unknown provider")
             };
 
