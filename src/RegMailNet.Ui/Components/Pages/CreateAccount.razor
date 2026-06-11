@@ -1,0 +1,145 @@
+@page "/create"
+@inject RegMailNetManager Manager
+@inject Services.AccountHistoryService History
+@inject Services.SettingsService SettingsService
+@using RegMailNet.EmailProviders
+
+<div class="max-w-2xl space-y-6">
+    <div>
+        <h1 class="text-3xl font-bold tracking-tight text-foreground">Create Account</h1>
+        <p class="text-muted-foreground mt-1">Select a provider and create an account instantly.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <BbCard Class="@($"cursor-pointer transition-all {(selectedProvider == "outlook" ? "ring-2 ring-primary" : "")}")"
+                @onclick="@(() => selectedProvider = "outlook")">
+            <BbCardContent class="text-center py-6">
+                <div class="text-3xl mb-2">Outlook</div>
+                <div class="text-sm text-muted-foreground">@@outlook.com</div>
+                <div class="text-xs text-green-600 mt-2">Captcha solver required</div>
+            </BbCardContent>
+        </BbCard>
+
+        <BbCard Class="@($"cursor-pointer transition-all {(selectedProvider == "gmail" ? "ring-2 ring-primary" : "")}")"
+                @onclick="@(() => selectedProvider = "gmail")">
+            <BbCardContent class="text-center py-6">
+                <div class="text-3xl mb-2">Gmail</div>
+                <div class="text-sm text-muted-foreground">@@gmail.com</div>
+                <div class="text-xs text-amber-600 mt-2">SMS verification required</div>
+            </BbCardContent>
+        </BbCard>
+
+        <BbCard Class="@($"cursor-pointer transition-all {(selectedProvider == "yahoo" ? "ring-2 ring-primary" : "")}")"
+                @onclick="@(() => selectedProvider = "yahoo")">
+            <BbCardContent class="text-center py-6">
+                <div class="text-3xl mb-2">Yahoo</div>
+                <div class="text-sm text-muted-foreground">@@yahoo.com</div>
+                <div class="text-xs text-amber-600 mt-2">Captcha + SMS required</div>
+            </BbCardContent>
+        </BbCard>
+    </div>
+
+    <BbCard>
+        <BbCardHeader>
+            <BbCardTitle>Options</BbCardTitle>
+        </BbCardHeader>
+        <BbCardContent>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="text-sm text-muted-foreground mb-1 block">Browser</label>
+                    <select @bind="selectedBrowser" class="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm">
+                        <option value="firefox">Firefox</option>
+                        <option value="chrome">Chrome</option>
+                        <option value="undetected-chrome">Undetected Chrome</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <label class="flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="checkbox" @bind="useProxy" class="rounded" />
+                        Use proxy
+                    </label>
+                </div>
+            </div>
+        </BbCardContent>
+    </BbCard>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <BbAlert Variant="AlertVariant.Danger">
+            <BbAlertDescription>@errorMessage</BbAlertDescription>
+        </BbAlert>
+    }
+
+    @if (!string.IsNullOrEmpty(successEmail))
+    {
+        <BbAlert Variant="AlertVariant.Success">
+            <BbAlertDescription>
+                Account created: <strong>@successEmail</strong> / <strong>@successPassword</strong>
+            </BbAlertDescription>
+        </BbAlert>
+    }
+
+    <div class="flex justify-center">
+        <BbButton Size="ButtonSize.Large" Disabled="@(isCreating || string.IsNullOrEmpty(selectedProvider))"
+                  @onclick="CreateAccountAsync">
+            @if (isCreating)
+            {
+                <span>Creating...</span>
+            }
+            else
+            {
+                <span>Create @(selectedProvider?.ToUpperInvariant() ?? "") Account</span>
+            }
+        </BbButton>
+    </div>
+</div>
+
+@code {
+    private string? selectedProvider;
+    private string selectedBrowser = "firefox";
+    private bool useProxy = true;
+    private bool isCreating;
+    private string? errorMessage;
+    private string? successEmail;
+    private string? successPassword;
+
+    protected override void OnInitialized()
+    {
+        selectedBrowser = SettingsService.Settings.Browser;
+    }
+
+    private async Task CreateAccountAsync()
+    {
+        if (string.IsNullOrEmpty(selectedProvider)) return;
+
+        isCreating = true;
+        errorMessage = null;
+        successEmail = null;
+        successPassword = null;
+        StateHasChanged();
+
+        try
+        {
+            AccountCreationResult result = selectedProvider switch
+            {
+                "outlook" => await Task.Run(() => Manager.CreateOutlookAccount(useProxy: useProxy)),
+                "gmail" => await Task.Run(() => Manager.CreateGmailAccount(useProxy: useProxy)),
+                "yahoo" => await Task.Run(() => Manager.CreateYahooAccount(useProxy: useProxy)),
+                _ => throw new ArgumentException("Unknown provider")
+            };
+
+            successEmail = result.Email;
+            successPassword = result.Password;
+            History.Add(result, selectedProvider!.Substring(0, 1).ToUpper() + selectedProvider.Substring(1));
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+            History.AddFailure(selectedProvider!, ex.Message);
+        }
+        finally
+        {
+            isCreating = false;
+        }
+    }
+}

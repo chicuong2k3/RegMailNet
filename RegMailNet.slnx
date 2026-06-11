@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/RegMailNet/RegMailNet.csproj" />
+    <Project Path="src/RegMailNet.Ui/RegMailNet.Ui.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/RegMailNet.Tests/RegMailNet.Tests.csproj" />

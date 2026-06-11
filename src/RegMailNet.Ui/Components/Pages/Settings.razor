@@ -1,0 +1,106 @@
+@page "/settings"
+@inject Services.SettingsService SettingsService
+
+<div class="max-w-2xl space-y-6">
+    <div>
+        <h1 class="text-3xl font-bold tracking-tight text-foreground">Settings</h1>
+        <p class="text-muted-foreground mt-1">Configure API keys and defaults.</p>
+    </div>
+
+    <BbCard>
+        <BbCardHeader>
+            <BbCardTitle>Browser</BbCardTitle>
+            <BbCardDescription>Default browser for account creation.</BbCardDescription>
+        </BbCardHeader>
+        <BbCardContent>
+            <select @bind="SettingsService.Settings.Browser" class="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm">
+                <option value="firefox">Firefox</option>
+                <option value="chrome">Chrome</option>
+                <option value="undetected-chrome">Undetected Chrome</option>
+            </select>
+        </BbCardContent>
+    </BbCard>
+
+    <BbCard>
+        <BbCardHeader>
+            <BbCardTitle>Captcha Services</BbCardTitle>
+            <BbCardDescription>API keys for captcha solving services.</BbCardDescription>
+        </BbCardHeader>
+        <BbCardContent class="space-y-4">
+            <div>
+                <label class="text-sm text-muted-foreground mb-1 block">Capsolver API Key</label>
+                <input @bind="SettingsService.Settings.CapsolverKey" type="password" placeholder="Enter key..."
+                       class="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm" />
+            </div>
+            <div>
+                <label class="text-sm text-muted-foreground mb-1 block">Nopecha API Key</label>
+                <input @bind="SettingsService.Settings.NopechaKey" type="password" placeholder="Enter key..."
+                       class="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm" />
+            </div>
+        </BbCardContent>
+    </BbCard>
+
+    <BbCard>
+        <BbCardHeader>
+            <BbCardTitle>SMS Services</BbCardTitle>
+            <BbCardDescription>API keys for phone verification services.</BbCardDescription>
+        </BbCardHeader>
+        <BbCardContent class="space-y-4">
+            <div>
+                <label class="text-sm text-muted-foreground mb-1 block">Default SMS Service</label>
+                <select @bind="SettingsService.Settings.DefaultSmsService" class="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm">
+                    <option value="smspool">SmsPool</option>
+                    <option value="5sim">5Sim</option>
+                    <option value="getsmscode">GetsmsCode</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-sm text-muted-foreground mb-1 block">SmsPool Token</label>
+                <input @bind="SettingsService.Settings.SmsPoolToken" type="password" placeholder="Enter token..."
+                       class="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm" />
+            </div>
+            <div>
+                <label class="text-sm text-muted-foreground mb-1 block">5Sim Token</label>
+                <input @bind="SettingsService.Settings.FiveSimToken" type="password" placeholder="Enter token..."
+                       class="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm" />
+            </div>
+            <div>
+                <label class="text-sm text-muted-foreground mb-1 block">GetsmsCode Username</label>
+                <input @bind="SettingsService.Settings.GetsmsCodeUser" placeholder="Enter username..."
+                       class="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm" />
+            </div>
+            <div>
+                <label class="text-sm text-muted-foreground mb-1 block">GetsmsCode Token</label>
+                <input @bind="SettingsService.Settings.GetsmsCodeToken" type="password" placeholder="Enter token..."
+                       class="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm" />
+            </div>
+        </BbCardContent>
+    </BbCard>
+
+    <div class="flex justify-end">
+        <BbButton Size="ButtonSize.Large" @onclick="Save">Save Settings</BbButton>
+    </div>
+
+    @if (showSaved)
+    {
+        <BbAlert Variant="AlertVariant.Success">
+            <BbAlertDescription>Settings saved successfully.</BbAlertDescription>
+        </BbAlert>
+    }
+</div>
+
+@code {
+    private bool showSaved;
+
+    private void Save()
+    {
+        SettingsService.Save();
+        showSaved = true;
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(2000);
+            showSaved = false;
+            await InvokeAsync(StateHasChanged);
+        });
+    }
+}

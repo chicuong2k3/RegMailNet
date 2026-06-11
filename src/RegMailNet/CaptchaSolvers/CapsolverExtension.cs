@@ -19,15 +19,6 @@ public class CapsolverExtension : ICaptchaSolver
     {
         var xpiPath = Path.Combine(extensionBasePath, "capsolver_captcha_solver-1.10.4.xpi");
         driver.InstallAddOn(xpiPath);
-
-        driver.Navigate().GoToUrl("https://www.google.com");
-        var capsolverSrc = driver.FindElement(By.XPath("/html/script[2]")).GetAttribute("src");
-        var capsolverExtId = capsolverSrc.Split('/')[2];
-        driver.Navigate().GoToUrl($"moz-extension://{capsolverExtId}/www/index.html#/popup");
-        Thread.Sleep(5000);
-
-        var apiKeyInput = driver.FindElement(By.XPath("//input[@placeholder=\"Please input your API key\"]"));
-        apiKeyInput.SendKeys(driver.ToString() ?? string.Empty);
     }
 
     public void ConfigureApiKey(string extensionBasePath, string apiKey)
@@ -42,6 +33,15 @@ public class CapsolverExtension : ICaptchaSolver
 
     public void PostDriverInit(IWebDriver driver, string apiKey)
     {
-        // No-op for capsolver
+        if (driver is not FirefoxDriver) return;
+
+        driver.Navigate().GoToUrl("https://www.google.com");
+        var capsolverSrc = driver.FindElement(By.XPath("/html/script[2]")).GetAttribute("src");
+        var capsolverExtId = capsolverSrc.Split('/')[2];
+        driver.Navigate().GoToUrl($"moz-extension://{capsolverExtId}/www/index.html#/popup");
+        Thread.Sleep(5000);
+
+        var apiKeyInput = driver.FindElement(By.XPath("//input[@placeholder=\"Please input your API key\"]"));
+        apiKeyInput.SendKeys(apiKey);
     }
 }
