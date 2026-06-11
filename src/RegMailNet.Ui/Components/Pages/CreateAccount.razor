@@ -11,32 +11,38 @@
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <BbCard Class="@($"cursor-pointer transition-all {(selectedProvider == "outlook" ? "ring-2 ring-primary" : "")}")"
-                @onclick="@(() => selectedProvider = "outlook")">
-            <BbCardContent class="text-center py-6">
-                <div class="text-3xl mb-2">Outlook</div>
-                <div class="text-sm text-muted-foreground">@@outlook.com</div>
-                <div class="text-xs text-green-600 mt-2">Captcha solver required</div>
-            </BbCardContent>
-        </BbCard>
+        <div class="@($"cursor-pointer transition-all rounded-lg {(selectedProvider == "outlook" ? "ring-2 ring-primary" : "")}")"
+             @onclick="@(() => selectedProvider = "outlook")">
+            <BbCard>
+                <BbCardContent class="text-center py-6">
+                    <div class="text-3xl mb-2">Outlook</div>
+                    <div class="text-sm text-muted-foreground">@@outlook.com</div>
+                    <div class="text-xs text-green-600 mt-2">Captcha solver required</div>
+                </BbCardContent>
+            </BbCard>
+        </div>
 
-        <BbCard Class="@($"cursor-pointer transition-all {(selectedProvider == "gmail" ? "ring-2 ring-primary" : "")}")"
-                @onclick="@(() => selectedProvider = "gmail")">
-            <BbCardContent class="text-center py-6">
-                <div class="text-3xl mb-2">Gmail</div>
-                <div class="text-sm text-muted-foreground">@@gmail.com</div>
-                <div class="text-xs text-amber-600 mt-2">SMS verification required</div>
-            </BbCardContent>
-        </BbCard>
+        <div class="@($"cursor-pointer transition-all rounded-lg {(selectedProvider == "gmail" ? "ring-2 ring-primary" : "")}")"
+             @onclick="@(() => selectedProvider = "gmail")">
+            <BbCard>
+                <BbCardContent class="text-center py-6">
+                    <div class="text-3xl mb-2">Gmail</div>
+                    <div class="text-sm text-muted-foreground">@@gmail.com</div>
+                    <div class="text-xs text-amber-600 mt-2">SMS verification required</div>
+                </BbCardContent>
+            </BbCard>
+        </div>
 
-        <BbCard Class="@($"cursor-pointer transition-all {(selectedProvider == "yahoo" ? "ring-2 ring-primary" : "")}")"
-                @onclick="@(() => selectedProvider = "yahoo")">
-            <BbCardContent class="text-center py-6">
-                <div class="text-3xl mb-2">Yahoo</div>
-                <div class="text-sm text-muted-foreground">@@yahoo.com</div>
-                <div class="text-xs text-amber-600 mt-2">Captcha + SMS required</div>
-            </BbCardContent>
-        </BbCard>
+        <div class="@($"cursor-pointer transition-all rounded-lg {(selectedProvider == "yahoo" ? "ring-2 ring-primary" : "")}")"
+             @onclick="@(() => selectedProvider = "yahoo")">
+            <BbCard>
+                <BbCardContent class="text-center py-6">
+                    <div class="text-3xl mb-2">Yahoo</div>
+                    <div class="text-sm text-muted-foreground">@@yahoo.com</div>
+                    <div class="text-xs text-amber-600 mt-2">Captcha + SMS required</div>
+                </BbCardContent>
+            </BbCard>
+        </div>
     </div>
 
     <BbCard>
