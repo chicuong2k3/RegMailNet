@@ -29,24 +29,33 @@ namespace RegMailNet.Ui
             settingsService.Load();
             builder.Services.AddSingleton(settingsService);
 
-            // Build RegMailNet configuration from settings
-            var captchaKeys = new Dictionary<string, string>();
-            if (!string.IsNullOrEmpty(settingsService.Settings.CapsolverKey))
-                captchaKeys["capsolver"] = settingsService.Settings.CapsolverKey;
-            if (!string.IsNullOrEmpty(settingsService.Settings.NopechaKey))
-                captchaKeys["nopecha"] = settingsService.Settings.NopechaKey;
+            // Lazy providers that read from SettingsService at call time
+            // so keys saved after startup are picked up immediately.
+            Dictionary<string, string> BuildCaptchaKeys()
+            {
+                var keys = new Dictionary<string, string>();
+                if (!string.IsNullOrEmpty(settingsService.Settings.CapsolverKey))
+                    keys["capsolver"] = settingsService.Settings.CapsolverKey;
+                if (!string.IsNullOrEmpty(settingsService.Settings.NopechaKey))
+                    keys["nopecha"] = settingsService.Settings.NopechaKey;
+                return keys;
+            }
 
-            var smsKeys = new Dictionary<string, Dictionary<string, string>>();
-            if (!string.IsNullOrEmpty(settingsService.Settings.SmsPoolToken))
-                smsKeys["smspool"] = new() { ["token"] = settingsService.Settings.SmsPoolToken };
-            if (!string.IsNullOrEmpty(settingsService.Settings.FiveSimToken))
-                smsKeys["5sim"] = new() { ["token"] = settingsService.Settings.FiveSimToken };
-            if (!string.IsNullOrEmpty(settingsService.Settings.GetsmsCodeToken))
-                smsKeys["getsmscode"] = new()
-                {
-                    ["user"] = settingsService.Settings.GetsmsCodeUser,
-                    ["token"] = settingsService.Settings.GetsmsCodeToken
-                };
+            Dictionary<string, Dictionary<string, string>> BuildSmsKeys()
+            {
+                var keys = new Dictionary<string, Dictionary<string, string>>();
+                if (!string.IsNullOrEmpty(settingsService.Settings.SmsPoolToken))
+                    keys["smspool"] = new() { ["token"] = settingsService.Settings.SmsPoolToken };
+                if (!string.IsNullOrEmpty(settingsService.Settings.FiveSimToken))
+                    keys["5sim"] = new() { ["token"] = settingsService.Settings.FiveSimToken };
+                if (!string.IsNullOrEmpty(settingsService.Settings.GetsmsCodeToken))
+                    keys["getsmscode"] = new()
+                    {
+                        ["user"] = settingsService.Settings.GetsmsCodeUser,
+                        ["token"] = settingsService.Settings.GetsmsCodeToken
+                    };
+                return keys;
+            }
 
             var options = Microsoft.Extensions.Options.Options.Create(new RegMailNetOptions
             {
@@ -68,8 +77,8 @@ namespace RegMailNet.Ui
                 var smsFactory = sp.GetRequiredService<ISmsServiceFactory>();
                 return new RegMailNetManager(
                     browserFactory: browserFactory,
-                    captchaKeys: captchaKeys,
-                    smsKeys: smsKeys,
+                    captchaKeysProvider: BuildCaptchaKeys,
+                    smsKeysProvider: BuildSmsKeys,
                     proxies: settingsService.Settings.Proxies,
                     smsServiceFactory: smsFactory,
                     options: options);

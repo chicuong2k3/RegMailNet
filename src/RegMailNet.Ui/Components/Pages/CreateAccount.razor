@@ -11,83 +11,57 @@
         <p class="text-muted-foreground mt-1">Select a provider, set quantity, and create accounts automatically.</p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="@($"cursor-pointer transition-all rounded-lg {(selectedProvider == "outlook" ? "ring-2 ring-primary" : "")}")"
-             @onclick="@(() => { if (!isCreating) selectedProvider = "outlook"; })">
-            <BbCard>
-                <BbCardContent class="text-center py-6">
-                    <div class="text-3xl mb-2">Outlook</div>
-                    <div class="text-sm text-muted-foreground">@@outlook.com</div>
-                    <div class="text-xs text-green-600 mt-2">Captcha solver required</div>
-                </BbCardContent>
-            </BbCard>
-        </div>
+    <!-- Provider Selection -->
+    <div class="bg-card rounded-xl border border-border p-6 space-y-3">
+        <label for="provider" class="text-sm font-medium text-foreground">Provider</label>
+        <select id="provider" @onchange="OnProviderChanged"
+                disabled="@isCreating"
+                class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary appearance-none cursor-pointer"
+                style="background-image: url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%236b7280%22 stroke-width=%222%22%3E%3Cpath d=%22M6 9l6 6 6-6%22/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 12px center;">
+            <option value="outlook">Outlook — @@outlook.com</option>
+            <option value="gmail">Gmail — @@gmail.com</option>
+            <option value="yahoo">Yahoo — @@yahoo.com</option>
+        </select>
+        <p class="text-xs @ProviderHintColor">@ProviderHintText</p>
+    </div>
 
-        <div class="@($"cursor-pointer transition-all rounded-lg {(selectedProvider == "gmail" ? "ring-2 ring-primary" : "")}")"
-             @onclick="@(() => { if (!isCreating) selectedProvider = "gmail"; })">
-            <BbCard>
-                <BbCardContent class="text-center py-6">
-                    <div class="text-3xl mb-2">Gmail</div>
-                    <div class="text-sm text-muted-foreground">@@gmail.com</div>
-                    <div class="text-xs text-amber-600 mt-2">SMS verification required</div>
-                </BbCardContent>
-            </BbCard>
-        </div>
-
-        <div class="@($"cursor-pointer transition-all rounded-lg {(selectedProvider == "yahoo" ? "ring-2 ring-primary" : "")}")"
-             @onclick="@(() => { if (!isCreating) selectedProvider = "yahoo"; })">
-            <BbCard>
-                <BbCardContent class="text-center py-6">
-                    <div class="text-3xl mb-2">Yahoo</div>
-                    <div class="text-sm text-muted-foreground">@@yahoo.com</div>
-                    <div class="text-xs text-amber-600 mt-2">Captcha + SMS required</div>
-                </BbCardContent>
-            </BbCard>
+    <!-- Options -->
+    <div class="bg-card rounded-xl border border-border p-6 space-y-3">
+        <div class="font-semibold text-foreground">Options</div>
+        <div class="flex items-center gap-6">
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <span>Quantity</span>
+                <input type="number" @bind="quantity" min="1" max="50"
+                       disabled="@isCreating"
+                       class="w-20 rounded border border-input bg-background px-2 py-1 text-sm text-center" />
+            </label>
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" @bind="useProxy" disabled="@isCreating" class="rounded" />
+                Use proxy
+            </label>
         </div>
     </div>
 
-    <BbCard>
-        <BbCardHeader>
-            <BbCardTitle>Options</BbCardTitle>
-        </BbCardHeader>
-        <BbCardContent>
-            <div class="flex items-center gap-6">
-                <label class="flex items-center gap-2 text-sm cursor-pointer">
-                    <span>Quantity</span>
-                    <input type="number" @bind="quantity" min="1" max="50"
-                           disabled="@isCreating"
-                           class="w-20 rounded border border-input bg-background px-2 py-1 text-sm text-center" />
-                </label>
-                <label class="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="checkbox" @bind="useProxy" disabled="@isCreating" class="rounded" />
-                    Use proxy
-                </label>
-            </div>
-        </BbCardContent>
-    </BbCard>
-
     @if (isCreating)
     {
-        <BbCard>
-            <BbCardContent class="py-4">
-                <div class="space-y-3">
-                    <div class="flex items-center justify-between text-sm">
-                        <span class="font-medium">Creating accounts...</span>
-                        <span class="text-muted-foreground">@createdCount / @quantity succeeded · @failedCount failed</span>
-                    </div>
-                    <div class="w-full bg-muted rounded-full h-2">
-                        <div class="bg-primary h-2 rounded-full transition-all" style="width: @((double)(createdCount + failedCount) / quantity * 100)%"></div>
-                    </div>
-                    @if (!string.IsNullOrEmpty(currentEmail))
-                    {
-                        <div class="text-xs text-muted-foreground">Current: @currentEmail</div>
-                    }
-                    <BbButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" @onclick="CancelCreation">
-                        Cancel
-                    </BbButton>
-                </div>
-            </BbCardContent>
-        </BbCard>
+        <!-- Progress -->
+        <div class="bg-card rounded-xl border border-border p-6 space-y-3">
+            <div class="flex items-center justify-between text-sm">
+                <span class="font-medium">Creating accounts...</span>
+                <span class="text-muted-foreground">@createdCount / @quantity succeeded · @failedCount failed</span>
+            </div>
+            <div class="w-full bg-muted rounded-full h-2">
+                <div class="bg-primary h-2 rounded-full transition-all" style="width: @((double)(createdCount + failedCount) / quantity * 100)%"></div>
+            </div>
+            @if (!string.IsNullOrEmpty(currentEmail))
+            {
+                <div class="text-xs text-muted-foreground">Current: @currentEmail</div>
+            }
+            <button @onclick="CancelCreation"
+                    class="px-3 py-1.5 text-sm border border-border rounded-md hover:bg-accent">
+                Cancel
+            </button>
+        </div>
     }
 
     @if (!isCreating && (createdCount > 0 || failedCount > 0))
@@ -106,9 +80,11 @@
         </BbAlert>
     }
 
+    <!-- Create Button -->
     <div class="flex justify-center">
-        <BbButton Size="ButtonSize.Large" Disabled="@(isCreating || string.IsNullOrEmpty(selectedProvider))"
-                  @onclick="StartBatchCreation">
+        <button id="createBtn" @onclick="StartBatchCreation"
+                disabled="@(isCreating || string.IsNullOrEmpty(selectedProvider))"
+                class="px-6 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
             @if (isCreating)
             {
                 <span>Creating @createdCount/@quantity...</span>
@@ -117,12 +93,12 @@
             {
                 <span>Create @quantity @(selectedProvider?.ToUpperInvariant() ?? "") Account@(quantity > 1 ? "s" : "")</span>
             }
-        </BbButton>
+        </button>
     </div>
 </div>
 
 @code {
-    private string? selectedProvider;
+    private string selectedProvider = "outlook";
     private int quantity = 1;
     private bool useProxy = true;
     private bool isCreating;
@@ -131,6 +107,30 @@
     private int failedCount;
     private string? currentEmail;
     private CancellationTokenSource? cts;
+
+    private string ProviderHintText => selectedProvider switch
+    {
+        "outlook" => "Captcha solver required",
+        "gmail" => "SMS verification required",
+        "yahoo" => "Captcha + SMS required",
+        _ => ""
+    };
+
+    private string ProviderHintColor => selectedProvider switch
+    {
+        "outlook" => "text-green-600",
+        "gmail" => "text-amber-600",
+        "yahoo" => "text-amber-600",
+        _ => "text-muted-foreground"
+    };
+
+    private void OnProviderChanged(ChangeEventArgs e)
+    {
+        if (!isCreating)
+        {
+            selectedProvider = e.Value?.ToString() ?? "outlook";
+        }
+    }
 
     private async Task StartBatchCreation()
     {

@@ -8,93 +8,121 @@
         <p class="text-muted-foreground mt-1">Overview of your email account creation.</p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <BbCard>
-            <BbCardHeader>
-                <BbCardDescription>Total Created</BbCardDescription>
-                <BbCardTitle Class="text-2xl">@History.Entries.Count(e => e.Status == "Success")</BbCardTitle>
-            </BbCardHeader>
-        </BbCard>
-        <BbCard>
-            <BbCardHeader>
-                <BbCardDescription>Outlook</BbCardDescription>
-                <BbCardTitle Class="text-2xl">@History.Entries.Count(e => e.Provider == "Outlook" && e.Status == "Success")</BbCardTitle>
-            </BbCardHeader>
-        </BbCard>
-        <BbCard>
-            <BbCardHeader>
-                <BbCardDescription>Gmail</BbCardDescription>
-                <BbCardTitle Class="text-2xl">@History.Entries.Count(e => e.Provider == "Gmail" && e.Status == "Success")</BbCardTitle>
-            </BbCardHeader>
-        </BbCard>
-        <BbCard>
-            <BbCardHeader>
-                <BbCardDescription>Yahoo</BbCardDescription>
-                <BbCardTitle Class="text-2xl">@History.Entries.Count(e => e.Provider == "Yahoo" && e.Status == "Success")</BbCardTitle>
-            </BbCardHeader>
-        </BbCard>
+    <!-- Stats summary -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-card rounded-xl border border-border p-4">
+            <div class="text-xs text-muted-foreground uppercase tracking-wider">Total</div>
+            <div class="text-2xl font-bold mt-1 tabular-nums">@History.Entries.Count(e => e.Status == "Success")</div>
+        </div>
+        <div class="bg-card rounded-xl border border-border p-4">
+            <div class="text-xs text-muted-foreground uppercase tracking-wider">Outlook</div>
+            <div class="text-2xl font-bold mt-1 tabular-nums">@History.Entries.Count(e => e.Provider == "Outlook" && e.Status == "Success")</div>
+        </div>
+        <div class="bg-card rounded-xl border border-border p-4">
+            <div class="text-xs text-muted-foreground uppercase tracking-wider">Gmail</div>
+            <div class="text-2xl font-bold mt-1 tabular-nums">@History.Entries.Count(e => e.Provider == "Gmail" && e.Status == "Success")</div>
+        </div>
+        <div class="bg-card rounded-xl border border-border p-4">
+            <div class="text-xs text-muted-foreground uppercase tracking-wider">Yahoo</div>
+            <div class="text-2xl font-bold mt-1 tabular-nums">@History.Entries.Count(e => e.Provider == "Yahoo" && e.Status == "Success")</div>
+        </div>
     </div>
 
-    <BbCard>
-        <BbCardHeader>
-            <BbCardTitle>Service Status</BbCardTitle>
-            <BbCardDescription>API key configuration status.</BbCardDescription>
-        </BbCardHeader>
-        <BbCardContent>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div class="flex items-center gap-2 text-sm">
-                    <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(SettingsService.Settings.CapsolverKey) ? "bg-destructive" : "bg-green-500")"></span>
-                    Capsolver — @(string.IsNullOrEmpty(SettingsService.Settings.CapsolverKey) ? "No API Key" : "Connected")
+    <!-- Activity chart -->
+    <div class="bg-card rounded-xl border border-border p-6">
+        <div class="font-semibold text-foreground">Activity</div>
+        <div class="text-xs text-muted-foreground mt-0.5">Accounts created over the last 7 days</div>
+        <div class="mt-6 h-40 flex items-end gap-1.5">
+            @foreach (var day in ActivityData)
+            {
+                <div class="flex-1 flex flex-col items-center gap-1">
+                    <div class="w-full rounded-t-sm @(day.IsToday ? "bg-primary" : day.Count > 0 ? "bg-primary/50" : "bg-primary/30")"
+                         style="height: @(day.Height)px;"></div>
+                    <span class="text-[10px] text-muted-foreground">@day.Label</span>
                 </div>
-                <div class="flex items-center gap-2 text-sm">
-                    <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(SettingsService.Settings.NopechaKey) ? "bg-destructive" : "bg-green-500")"></span>
-                    Nopecha — @(string.IsNullOrEmpty(SettingsService.Settings.NopechaKey) ? "No API Key" : "Connected")
-                </div>
-                <div class="flex items-center gap-2 text-sm">
-                    <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(SettingsService.Settings.SmsPoolToken) ? "bg-destructive" : "bg-green-500")"></span>
-                    SmsPool — @(string.IsNullOrEmpty(SettingsService.Settings.SmsPoolToken) ? "No API Key" : "Connected")
-                </div>
-                <div class="flex items-center gap-2 text-sm">
-                    <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(SettingsService.Settings.FiveSimToken) ? "bg-destructive" : "bg-green-500")"></span>
-                    5Sim — @(string.IsNullOrEmpty(SettingsService.Settings.FiveSimToken) ? "No API Key" : "Connected")
-                </div>
-                <div class="flex items-center gap-2 text-sm">
-                    <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(SettingsService.Settings.GetsmsCodeToken) ? "bg-destructive" : "bg-green-500")"></span>
-                    GetsmsCode — @(string.IsNullOrEmpty(SettingsService.Settings.GetsmsCodeToken) ? "No API Key" : "Connected")
-                </div>
-            </div>
-        </BbCardContent>
-    </BbCard>
+            }
+        </div>
+    </div>
 
-    <BbCard>
-        <BbCardHeader>
-            <BbCardTitle>Recent Activity</BbCardTitle>
-        </BbCardHeader>
-        <BbCardContent>
-            @if (!History.Entries.Any())
-            {
-                <p class="text-sm text-muted-foreground text-center py-8">
-                    No accounts created yet. Go to <a href="create" class="text-primary hover:underline">Create Account</a> to get started.
-                </p>
-            }
-            else
-            {
-                <div class="space-y-2">
-                    @foreach (var entry in History.Entries.Take(5))
-                    {
-                        <div class="flex items-center justify-between text-sm py-2 border-b border-border last:border-0">
-                            <div>
-                                <span class="font-medium">@entry.Email</span>
-                                <span class="text-muted-foreground ml-2">@entry.Provider</span>
-                            </div>
-                            <div class="flex items-center gap-3">
-                                <span class="text-muted-foreground">@entry.CreatedAt.ToString("HH:mm:ss")</span>
-                                <span class="@(entry.Status == "Success" ? "text-green-600" : "text-destructive")">@entry.Status</span>
-                            </div>
-                        </div>
-                    }
-                </div>
-            }
-        </BbCardContent>
-    </BbCard>
+    <!-- Service Status -->
+    <div class="bg-card rounded-xl border border-border p-6">
+        <div class="font-semibold text-foreground">Service Status</div>
+        <div class="text-sm text-muted-foreground mt-0.5">API key configuration status.</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+            <div class="flex items-center gap-2 text-sm">
+                <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(SettingsService.Settings.CapsolverKey) ? "bg-destructive" : "bg-green-500")"></span>
+                Capsolver — @(string.IsNullOrEmpty(SettingsService.Settings.CapsolverKey) ? "No API Key" : "Connected")
+            </div>
+            <div class="flex items-center gap-2 text-sm">
+                <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(SettingsService.Settings.NopechaKey) ? "bg-destructive" : "bg-green-500")"></span>
+                Nopecha — @(string.IsNullOrEmpty(SettingsService.Settings.NopechaKey) ? "No API Key" : "Connected")
+            </div>
+            <div class="flex items-center gap-2 text-sm">
+                <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(SettingsService.Settings.SmsPoolToken) ? "bg-destructive" : "bg-green-500")"></span>
+                SmsPool — @(string.IsNullOrEmpty(SettingsService.Settings.SmsPoolToken) ? "No API Key" : "Connected")
+            </div>
+            <div class="flex items-center gap-2 text-sm">
+                <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(SettingsService.Settings.FiveSimToken) ? "bg-destructive" : "bg-green-500")"></span>
+                5Sim — @(string.IsNullOrEmpty(SettingsService.Settings.FiveSimToken) ? "No API Key" : "Connected")
+            </div>
+            <div class="flex items-center gap-2 text-sm">
+                <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(SettingsService.Settings.GetsmsCodeToken) ? "bg-destructive" : "bg-green-500")"></span>
+                GetsmsCode — @(string.IsNullOrEmpty(SettingsService.Settings.GetsmsCodeToken) ? "No API Key" : "Connected")
+            </div>
+        </div>
+    </div>
 </div>
+
+@code {
+    private List<ActivityDay> ActivityData => GetActivityData();
+
+    private List<ActivityDay> GetActivityData()
+    {
+        var today = DateTime.Today;
+        var dayLabels = new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+        var result = new List<ActivityDay>();
+
+        // Get the start of the current week (Monday)
+        var startOfWeek = today.AddDays(-(int)today.DayOfWeek + (int)DayOfWeek.Monday);
+        if (today.DayOfWeek == DayOfWeek.Sunday) startOfWeek = today.AddDays(-6);
+
+        var entries = History.Entries
+            .Where(e => e.Status == "Success")
+            .GroupBy(e => e.CreatedAt.Date)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var maxCount = 0;
+        for (int i = 0; i < 7; i++)
+        {
+            var date = startOfWeek.AddDays(i);
+            var count = entries.GetValueOrDefault(date, 0);
+            if (count > maxCount) maxCount = count;
+        }
+
+        for (int i = 0; i < 7; i++)
+        {
+            var date = startOfWeek.AddDays(i);
+            var count = entries.GetValueOrDefault(date, 0);
+            var height = maxCount > 0 ? (int)((double)count / maxCount * 140) : 0;
+            if (count > 0 && height < 4) height = 4; // minimum visible height
+
+            result.Add(new ActivityDay
+            {
+                Label = dayLabels[i],
+                Count = count,
+                Height = height,
+                IsToday = date == today
+            });
+        }
+
+        return result;
+    }
+
+    private class ActivityDay
+    {
+        public string Label { get; set; } = "";
+        public int Count { get; set; }
+        public int Height { get; set; }
+        public bool IsToday { get; set; }
+    }
+}

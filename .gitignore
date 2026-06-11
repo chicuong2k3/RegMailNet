@@ -36,3 +36,6 @@ project.lock.json
 ## OS
 .DS_Store
 Thumbs.db
+
+## Export
+export/
