@@ -100,7 +100,24 @@ namespace RegMailNet.Ui
             builder.Logging.AddDebug();
 #endif
 
-            return builder.Build();
+            var app = builder.Build();
+
+            // Ensure camoufox Python package is installed at startup
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var browserFactory = app.Services.GetRequiredService<IBrowserFactory>();
+                    await browserFactory.EnsureInstalledAsync();
+                }
+                catch (Exception ex)
+                {
+                    var logger = app.Services.GetService<ILogger<MauiApp>>();
+                    logger?.LogError(ex, "Failed to ensure camoufox is installed");
+                }
+            });
+
+            return app;
         }
     }
 }
