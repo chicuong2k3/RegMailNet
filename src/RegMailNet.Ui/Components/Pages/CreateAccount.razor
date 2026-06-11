@@ -3,16 +3,17 @@
 @inject Services.AccountHistoryService History
 @inject Services.SettingsService SettingsService
 @using RegMailNet.EmailProviders
+@implements IDisposable
 
 <div class="max-w-2xl space-y-6">
     <div>
-        <h1 class="text-3xl font-bold tracking-tight text-foreground">Create Account</h1>
-        <p class="text-muted-foreground mt-1">Select a provider and create an account instantly.</p>
+        <h1 class="text-3xl font-bold tracking-tight text-foreground">Create Accounts</h1>
+        <p class="text-muted-foreground mt-1">Select a provider, set quantity, and create accounts automatically.</p>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="@($"cursor-pointer transition-all rounded-lg {(selectedProvider == "outlook" ? "ring-2 ring-primary" : "")}")"
-             @onclick="@(() => selectedProvider = "outlook")">
+             @onclick="@(() => { if (!isCreating) selectedProvider = "outlook"; })">
             <BbCard>
                 <BbCardContent class="text-center py-6">
                     <div class="text-3xl mb-2">Outlook</div>
@@ -23,7 +24,7 @@
         </div>
 
         <div class="@($"cursor-pointer transition-all rounded-lg {(selectedProvider == "gmail" ? "ring-2 ring-primary" : "")}")"
-             @onclick="@(() => selectedProvider = "gmail")">
+             @onclick="@(() => { if (!isCreating) selectedProvider = "gmail"; })">
             <BbCard>
                 <BbCardContent class="text-center py-6">
                     <div class="text-3xl mb-2">Gmail</div>
@@ -34,7 +35,7 @@
         </div>
 
         <div class="@($"cursor-pointer transition-all rounded-lg {(selectedProvider == "yahoo" ? "ring-2 ring-primary" : "")}")"
-             @onclick="@(() => selectedProvider = "yahoo")">
+             @onclick="@(() => { if (!isCreating) selectedProvider = "yahoo"; })">
             <BbCard>
                 <BbCardContent class="text-center py-6">
                     <div class="text-3xl mb-2">Yahoo</div>
@@ -50,41 +51,71 @@
             <BbCardTitle>Options</BbCardTitle>
         </BbCardHeader>
         <BbCardContent>
-            <div class="flex items-center">
+            <div class="flex items-center gap-6">
                 <label class="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="checkbox" @bind="useProxy" class="rounded" />
+                    <span>Quantity</span>
+                    <input type="number" @bind="quantity" min="1" max="50"
+                           disabled="@isCreating"
+                           class="w-20 rounded border border-input bg-background px-2 py-1 text-sm text-center" />
+                </label>
+                <label class="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" @bind="useProxy" disabled="@isCreating" class="rounded" />
                     Use proxy
                 </label>
             </div>
         </BbCardContent>
     </BbCard>
 
-    @if (!string.IsNullOrEmpty(errorMessage))
+    @if (isCreating)
+    {
+        <BbCard>
+            <BbCardContent class="py-4">
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="font-medium">Creating accounts...</span>
+                        <span class="text-muted-foreground">@createdCount / @quantity succeeded · @failedCount failed</span>
+                    </div>
+                    <div class="w-full bg-muted rounded-full h-2">
+                        <div class="bg-primary h-2 rounded-full transition-all" style="width: @((double)(createdCount + failedCount) / quantity * 100)%"></div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(currentEmail))
+                    {
+                        <div class="text-xs text-muted-foreground">Current: @currentEmail</div>
+                    }
+                    <BbButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" @onclick="CancelCreation">
+                        Cancel
+                    </BbButton>
+                </div>
+            </BbCardContent>
+        </BbCard>
+    }
+
+    @if (!isCreating && (createdCount > 0 || failedCount > 0))
+    {
+        <BbAlert Variant="@(failedCount == 0 ? AlertVariant.Success : AlertVariant.Warning)">
+            <BbAlertDescription>
+                Batch complete: <strong>@createdCount</strong> created, <strong>@failedCount</strong> failed.
+            </BbAlertDescription>
+        </BbAlert>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage) && !isCreating)
     {
         <BbAlert Variant="AlertVariant.Danger">
             <BbAlertDescription>@errorMessage</BbAlertDescription>
         </BbAlert>
     }
 
-    @if (!string.IsNullOrEmpty(successEmail))
-    {
-        <BbAlert Variant="AlertVariant.Success">
-            <BbAlertDescription>
-                Account created: <strong>@successEmail</strong> / <strong>@successPassword</strong>
-            </BbAlertDescription>
-        </BbAlert>
-    }
-
     <div class="flex justify-center">
         <BbButton Size="ButtonSize.Large" Disabled="@(isCreating || string.IsNullOrEmpty(selectedProvider))"
-                  @onclick="CreateAccountAsync">
+                  @onclick="StartBatchCreation">
             @if (isCreating)
             {
-                <span>Creating...</span>
+                <span>Creating @createdCount/@quantity...</span>
             }
             else
             {
-                <span>Create @(selectedProvider?.ToUpperInvariant() ?? "") Account</span>
+                <span>Create @quantity @(selectedProvider?.ToUpperInvariant() ?? "") Account@(quantity > 1 ? "s" : "")</span>
             }
         </BbButton>
     </div>
@@ -92,44 +123,74 @@
 
 @code {
     private string? selectedProvider;
+    private int quantity = 1;
     private bool useProxy = true;
     private bool isCreating;
     private string? errorMessage;
-    private string? successEmail;
-    private string? successPassword;
+    private int createdCount;
+    private int failedCount;
+    private string? currentEmail;
+    private CancellationTokenSource? cts;
 
-    private async Task CreateAccountAsync()
+    private async Task StartBatchCreation()
     {
-        if (string.IsNullOrEmpty(selectedProvider)) return;
+        if (string.IsNullOrEmpty(selectedProvider) || quantity < 1) return;
 
         isCreating = true;
+        createdCount = 0;
+        failedCount = 0;
         errorMessage = null;
-        successEmail = null;
-        successPassword = null;
+        currentEmail = null;
+        cts = new CancellationTokenSource();
         StateHasChanged();
 
-        try
-        {
-            AccountCreationResult result = selectedProvider switch
-            {
-                "outlook" => await Manager.CreateOutlookAccountAsync(useProxy: useProxy),
-                "gmail" => await Manager.CreateGmailAccountAsync(useProxy: useProxy),
-                "yahoo" => await Manager.CreateYahooAccountAsync(useProxy: useProxy),
-                _ => throw new ArgumentException("Unknown provider")
-            };
+        var providerName = selectedProvider.Substring(0, 1).ToUpper() + selectedProvider.Substring(1);
 
-            successEmail = result.Email;
-            successPassword = result.Password;
-            History.Add(result, selectedProvider!.Substring(0, 1).ToUpper() + selectedProvider.Substring(1));
-        }
-        catch (Exception ex)
+        for (int i = 0; i < quantity; i++)
         {
-            errorMessage = ex.Message;
-            History.AddFailure(selectedProvider!, ex.Message);
+            if (cts.Token.IsCancellationRequested)
+                break;
+
+            try
+            {
+                currentEmail = $"Creating #{i + 1}...";
+                StateHasChanged();
+
+                AccountCreationResult result = selectedProvider switch
+                {
+                    "outlook" => await Manager.CreateOutlookAccountAsync(useProxy: useProxy),
+                    "gmail" => await Manager.CreateGmailAccountAsync(useProxy: useProxy),
+                    "yahoo" => await Manager.CreateYahooAccountAsync(useProxy: useProxy),
+                    _ => throw new ArgumentException("Unknown provider")
+                };
+
+                currentEmail = result.Email;
+                createdCount++;
+                History.Add(result, providerName);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                failedCount++;
+                History.AddFailure(selectedProvider, ex.Message);
+            }
+
+            StateHasChanged();
         }
-        finally
-        {
-            isCreating = false;
-        }
+
+        isCreating = false;
+        currentEmail = null;
+        cts?.Dispose();
+        cts = null;
+    }
+
+    private void CancelCreation()
+    {
+        cts?.Cancel();
+    }
+
+    public void Dispose()
+    {
+        cts?.Cancel();
+        cts?.Dispose();
     }
 }
