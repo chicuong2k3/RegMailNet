@@ -4,7 +4,7 @@ namespace RegMailNet.Utilities;
 
 /// <summary>
 /// Reusable Playwright interaction helpers with auto-wait built in.
-/// Playwright's auto-wait eliminates the need for manual WebDriverWait patterns.
+/// Uses Playwright's built-in auto-wait via Locator API.
 /// </summary>
 public static class WebHelpers
 {
