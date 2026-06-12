@@ -31,6 +31,28 @@ public class AccountHistoryService
             Status = $"Failed: {error}"
         });
     }
+
+    public void Delete(int index)
+    {
+        if (index >= 0 && index < _entries.Count)
+            _entries.RemoveAt(index);
+    }
+
+    public void ClearAll()
+    {
+        _entries.Clear();
+    }
+
+    public string ExportToCsv()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Email,Password,Provider,Created,Status");
+        foreach (var entry in _entries)
+        {
+            sb.AppendLine($"\"{entry.Email}\",\"{entry.Password}\",\"{entry.Provider}\",\"{entry.CreatedAt:yyyy-MM-dd HH:mm}\",\"{entry.Status}\"");
+        }
+        return sb.ToString();
+    }
 }
 
 public class AccountHistoryEntry

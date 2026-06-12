@@ -1,69 +1,172 @@
 @page "/history"
 @inject Services.AccountHistoryService HistoryService
+@inject IJSRuntime JS
 
-<div class="max-w-4xl space-y-6">
-    <div>
-        <h1 class="text-3xl font-bold tracking-tight text-foreground">History</h1>
-        <p class="text-muted-foreground mt-1">All created email accounts.</p>
+<div class="max-w-4xl space-y-4">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold tracking-tight text-foreground">History</h1>
+            <p class="text-muted-foreground text-sm mt-0.5">All created email accounts.</p>
+        </div>
+        <div class="flex items-center gap-2">
+            @if (selectedEntries.Any())
+            {
+                <span class="text-[11px] text-muted-foreground">@selectedEntries.Count selected</span>
+                <BbButton Variant="ButtonVariant.Destructive" Size="ButtonSize.Small"
+                         OnClick="DeleteSelected">
+                    Delete Selected
+                </BbButton>
+            }
+            <BbButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                     OnClick="ExportCsv">
+                Export CSV
+            </BbButton>
+            @if (HistoryService.Entries.Any())
+            {
+                <BbButton Variant="ButtonVariant.Destructive" Size="ButtonSize.Small"
+                         OnClick="ClearAll">
+                    Clear All
+                </BbButton>
+            }
+        </div>
     </div>
 
-    <div class="bg-card rounded-xl border border-border p-6">
+    <BbCard Class="p-3 !rounded-xl !shadow-none">
         <!-- Filters -->
-        <div class="flex items-center justify-end mb-4">
-            <div class="flex items-center gap-3">
-                <select @bind="filterProvider" @bind:after="ApplyFilters"
-                        class="p-1.5 border border-border rounded-md bg-background text-foreground text-sm">
+        <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-1.5">
+                @if (HasActiveFilters)
+                {
+                    <BbButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small"
+                             OnClick="ClearFilters"
+                             Class="text-[11px]">
+                        ✕ Clear
+                    </BbButton>
+                }
+                <span class="text-[11px] text-muted-foreground">@FilteredEntries.Count() results</span>
+                <div class="flex items-center gap-0.5">
+                    <BbButton Variant="@(activePreset == 0 ? ButtonVariant.Default : ButtonVariant.Ghost)"
+                             Size="ButtonSize.Small"
+                             OnClick="() => SetDatePreset(0)"
+                             Class="text-[10px]">
+                        Today
+                    </BbButton>
+                    <BbButton Variant="@(activePreset == 7 ? ButtonVariant.Default : ButtonVariant.Ghost)"
+                             Size="ButtonSize.Small"
+                             OnClick="() => SetDatePreset(7)"
+                             Class="text-[10px]">
+                        7d
+                    </BbButton>
+                    <BbButton Variant="@(activePreset == 30 ? ButtonVariant.Default : ButtonVariant.Ghost)"
+                             Size="ButtonSize.Small"
+                             OnClick="() => SetDatePreset(30)"
+                             Class="text-[10px]">
+                        30d
+                    </BbButton>
+                    <BbButton Variant="@(activePreset == -1 ? ButtonVariant.Default : ButtonVariant.Ghost)"
+                             Size="ButtonSize.Small"
+                             OnClick="() => SetDatePreset(-1)"
+                             Class="text-[10px]">
+                        All
+                    </BbButton>
+                </div>
+            </div>
+            <div class="flex items-center gap-1">
+                <BbInput @bind-Value="searchEmail"
+                        UpdateTiming="UpdateTiming.Debounced"
+                        DebounceInterval="300"
+                        Placeholder="Search email..."
+                        Class="w-32 text-[11px]" />
+                <BbNativeSelect TValue="string" @bind-Value="filterProvider"
+                               @bind-Value:after="ApplyFilters"
+                               Class="w-24 text-[11px]">
                     <option value="">All Providers</option>
                     <option value="Outlook">Outlook</option>
                     <option value="Gmail">Gmail</option>
                     <option value="Yahoo">Yahoo</option>
-                </select>
-                <select @bind="filterStatus" @bind:after="ApplyFilters"
-                        class="p-1.5 border border-border rounded-md bg-background text-foreground text-sm">
+                </BbNativeSelect>
+                <BbNativeSelect TValue="string" @bind-Value="filterStatus"
+                               @bind-Value:after="ApplyFilters"
+                               Class="w-20 text-[11px]">
                     <option value="">All Status</option>
                     <option value="Success">Success</option>
                     <option value="Failed">Failed</option>
-                </select>
-                <input type="date" @bind="filterDate" @bind:after="ApplyFilters"
-                       class="p-1.5 border border-border rounded-md bg-background text-foreground text-sm" />
-                <select @bind="sortOrder" @bind:after="ApplyFilters"
-                        class="p-1.5 border border-border rounded-md bg-background text-foreground text-sm">
+                </BbNativeSelect>
+                <BbInput Type="InputType.Date"
+                        @bind-Value="filterDateStr"
+                        UpdateTiming="UpdateTiming.OnChange"
+                        Class="w-32 text-[11px]" />
+                <BbNativeSelect TValue="string" @bind-Value="sortOrder"
+                               @bind-Value:after="ApplyFilters"
+                               Class="w-28 text-[11px]">
                     <option value="newest">Newest First</option>
                     <option value="oldest">Oldest First</option>
-                </select>
+                </BbNativeSelect>
             </div>
         </div>
 
         <!-- Table -->
         @if (!PagedEntries.Any())
         {
-            <p class="text-sm text-muted-foreground text-center py-8">No accounts in history.</p>
+            <div class="text-center py-6">
+                <p class="text-[11px] text-muted-foreground">No accounts in history.</p>
+                <a href="/create" class="text-[11px] text-primary hover:underline mt-1 inline-block">Create your first account →</a>
+            </div>
         }
         else
         {
             <div class="overflow-x-auto">
-                <table class="w-full text-sm">
+                <table class="w-full text-[11px]">
                     <thead>
                         <tr class="border-b border-border text-left text-muted-foreground">
-                            <th class="py-2 pr-4">Email</th>
-                            <th class="py-2 pr-4">Password</th>
-                            <th class="py-2 pr-4">Provider</th>
-                            <th class="py-2 pr-4">Created</th>
-                            <th class="py-2">Status</th>
+                            <th class="py-1 pr-2 w-6">
+                                <input type="checkbox" checked="@allSelected"
+                                       @onchange="ToggleSelectAll"
+                                       class="rounded w-3 h-3" />
+                            </th>
+                            <th class="py-1 pr-2">Email</th>
+                            <th class="py-1 pr-2">Password</th>
+                            <th class="py-1 pr-2">Provider</th>
+                            <th class="py-1 pr-2">Created</th>
+                            <th class="py-1 pr-2">Status</th>
+                            <th class="py-1 w-8"></th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var entry in PagedEntries)
+                        @foreach (var (entry, index) in PagedEntries.Select((e, i) => (e, i)))
                         {
-                            <tr class="border-b border-border last:border-0">
-                                <td class="py-2 pr-4 font-medium">@entry.Email</td>
-                                <td class="py-2 pr-4 font-mono text-xs">@entry.Password</td>
-                                <td class="py-2 pr-4">@entry.Provider</td>
-                                <td class="py-2 pr-4 text-muted-foreground">@entry.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
-                                <td class="py-2">
-                                    <span class="@(entry.Status == "Success" ? "text-green-600" : "text-destructive")">
-                                        @entry.Status
-                                    </span>
+                            <tr class="border-b border-border last:border-0 hover:bg-muted/50 transition-colors group">
+                                <td class="py-1 pr-2">
+                                    <input type="checkbox" checked="@selectedEntries.Contains(index)"
+                                           @onchange="() => ToggleSelection(index)"
+                                           class="rounded w-3 h-3" />
+                                </td>
+                                <td class="py-1 pr-2 font-medium">@entry.Email</td>
+                                <td class="py-1 pr-2 font-mono text-[10px]">
+                                    <button class="hover:text-primary cursor-pointer select-all"
+                                            @onclick="() => CopyToClipboard(entry.Password)"
+                                            title="Click to copy">
+                                        @entry.Password
+                                    </button>
+                                </td>
+                                <td class="py-1 pr-2">@entry.Provider</td>
+                                <td class="py-1 pr-2 text-muted-foreground">@entry.CreatedAt.ToString("MM-dd HH:mm")</td>
+                                <td class="py-1 pr-2">
+                                    @if (entry.Status == "Success")
+                                    {
+                                        <span class="text-green-600">✓</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-destructive" title="@entry.Status">✗</span>
+                                    }
+                                </td>
+                                <td class="py-1">
+                                    <button class="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive/80"
+                                            @onclick="() => DeleteEntry(index)"
+                                            title="Delete">
+                                        ✕
+                                    </button>
                                 </td>
                             </tr>
                         }
@@ -73,69 +176,57 @@
         }
 
         <!-- Pagination -->
-        <div class="flex items-center justify-between mt-4 pt-4 border-t border-border">
-            <div class="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>Rows per page:</span>
-                <select @bind="pageSize" @bind:after="ApplyFilters"
-                        class="p-1 border border-border rounded-md bg-background text-foreground text-sm">
+        <div class="flex items-center justify-between mt-2 pt-2 border-t border-border">
+            <div class="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span>Per page:</span>
+                <BbNativeSelect TValue="string" @bind-Value="pageSizeStr"
+                               @bind-Value:after="ApplyFilters"
+                               Class="w-14 text-[11px]">
                     <option value="5">5</option>
-                    <option value="10">10</option>
+                    <option value="10" selected>10</option>
                     <option value="20">20</option>
                     <option value="50">50</option>
-                </select>
+                </BbNativeSelect>
             </div>
-            <div class="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>@PageInfo</span>
-            </div>
-            <div class="flex items-center gap-1">
-                <button @onclick="PreviousPage" disabled="@(currentPage <= 1)"
-                        class="w-8 h-8 inline-flex items-center justify-center rounded-md border border-border bg-card text-foreground text-sm hover:bg-muted disabled:opacity-40 disabled:cursor-default disabled:hover:bg-card">
-                    ‹
-                </button>
-                @for (int p = 1; p <= TotalPages; p++)
-                {
-                    var pageNum = p;
-                    <button @onclick="@(() => GoToPage(pageNum))"
-                            class="w-8 h-8 inline-flex items-center justify-center rounded-md border @(pageNum == currentPage ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground") text-sm hover:bg-muted">
-                        @pageNum
-                    </button>
-                }
-                <button @onclick="NextPage" disabled="@(currentPage >= TotalPages)"
-                        class="w-8 h-8 inline-flex items-center justify-center rounded-md border border-border bg-card text-foreground text-sm hover:bg-muted disabled:opacity-40 disabled:cursor-default disabled:hover:bg-card">
-                    ›
-                </button>
-            </div>
+            <div class="text-[11px] text-muted-foreground">@PageInfo</div>
+            <BbPagination TotalPages="@TotalPages"
+                         @bind-CurrentPage="currentPage" />
         </div>
-    </div>
+    </BbCard>
 </div>
 
 @code {
+    private string searchEmail = "";
     private string filterProvider = "";
     private string filterStatus = "";
-    private DateTime? filterDate;
+    private string filterDateStr = "";
     private string sortOrder = "newest";
-    private int pageSize = 10;
+    private string pageSizeStr = "10";
     private int currentPage = 1;
+    private int activePreset = -1;
+    private HashSet<int> selectedEntries = new();
+
+    private DateTime? filterDate => string.IsNullOrEmpty(filterDateStr) ? null : DateTime.TryParse(filterDateStr, out var d) ? d : null;
+    private int pageSize => int.TryParse(pageSizeStr, out var s) ? s : 10;
+    private bool HasActiveFilters => !string.IsNullOrEmpty(filterProvider) || !string.IsNullOrEmpty(filterStatus) || filterDate.HasValue || !string.IsNullOrEmpty(searchEmail);
+    private bool allSelected => selectedEntries.Count == PagedEntries.Count() && PagedEntries.Any();
 
     private IEnumerable<Services.AccountHistoryEntry> FilteredEntries
     {
         get
         {
             var entries = HistoryService.Entries.AsEnumerable();
-
+            if (!string.IsNullOrEmpty(searchEmail))
+                entries = entries.Where(e => e.Email.Contains(searchEmail, StringComparison.OrdinalIgnoreCase));
             if (!string.IsNullOrEmpty(filterProvider))
                 entries = entries.Where(e => e.Provider == filterProvider);
-
             if (!string.IsNullOrEmpty(filterStatus))
                 entries = entries.Where(e => e.Status == filterStatus);
-
             if (filterDate.HasValue)
                 entries = entries.Where(e => e.CreatedAt.Date == filterDate.Value.Date);
-
             entries = sortOrder == "newest"
                 ? entries.OrderByDescending(e => e.CreatedAt)
                 : entries.OrderBy(e => e.CreatedAt);
-
             return entries;
         }
     }
@@ -159,27 +250,94 @@
             if (total == 0) return "No results";
             var start = (currentPage - 1) * pageSize + 1;
             var end = Math.Min(currentPage * pageSize, total);
-            return $"Showing {start}–{end} of {total}";
+            return $"{start}–{end} of {total}";
         }
     }
 
-    private void ApplyFilters()
+    private void ApplyFilters() => currentPage = 1;
+
+    private void SetDatePreset(int days)
     {
+        activePreset = days;
+        if (days == -1)
+            filterDateStr = "";
+        else if (days == 0)
+            filterDateStr = DateTime.Today.ToString("yyyy-MM-dd");
+        else
+            filterDateStr = DateTime.Today.AddDays(-days).ToString("yyyy-MM-dd");
         currentPage = 1;
     }
 
-    private void GoToPage(int page)
+    private void ClearFilters()
     {
-        currentPage = Math.Clamp(page, 1, TotalPages);
+        filterProvider = "";
+        filterStatus = "";
+        filterDateStr = "";
+        sortOrder = "newest";
+        currentPage = 1;
     }
 
-    private void PreviousPage()
+    private void DeleteEntry(int pageIndex)
     {
-        if (currentPage > 1) currentPage--;
+        var actualIndex = (currentPage - 1) * pageSize + pageIndex;
+        var entries = FilteredEntries.ToList();
+        if (pageIndex < entries.Count)
+        {
+            var entry = entries[pageIndex];
+            var realIndex = HistoryService.Entries.ToList().IndexOf(entry);
+            if (realIndex >= 0)
+                HistoryService.Delete(realIndex);
+        }
     }
 
-    private void NextPage()
+    private void ClearAll()
     {
-        if (currentPage < TotalPages) currentPage++;
+        HistoryService.ClearAll();
+        currentPage = 1;
+    }
+
+    private async Task ExportCsv()
+    {
+        var csv = HistoryService.ExportToCsv();
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", csv);
+    }
+
+    private async Task CopyToClipboard(string text)
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+    }
+
+    private void ToggleSelection(int index)
+    {
+        if (selectedEntries.Contains(index))
+            selectedEntries.Remove(index);
+        else
+            selectedEntries.Add(index);
+    }
+
+    private void ToggleSelectAll(ChangeEventArgs e)
+    {
+        if (allSelected)
+            selectedEntries.Clear();
+        else
+            selectedEntries = new HashSet<int>(Enumerable.Range(0, PagedEntries.Count()));
+    }
+
+    private void DeleteSelected()
+    {
+        var entries = FilteredEntries.ToList();
+        var toDelete = selectedEntries
+            .Where(i => i < entries.Count)
+            .Select(i => entries[i])
+            .ToList();
+
+        foreach (var entry in toDelete)
+        {
+            var realIndex = HistoryService.Entries.ToList().IndexOf(entry);
+            if (realIndex >= 0)
+                HistoryService.Delete(realIndex);
+        }
+
+        selectedEntries.Clear();
     }
 }

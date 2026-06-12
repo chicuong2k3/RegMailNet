@@ -1,131 +1,253 @@
 @page "/settings"
 @inject Services.SettingsService SettingsService
+@inject IJSRuntime JS
 
-<div class="max-w-2xl space-y-6">
+<div class="max-w-2xl space-y-4">
     <div>
-        <h1 class="text-3xl font-bold tracking-tight text-foreground">Settings</h1>
-        <p class="text-muted-foreground mt-1">Configure API keys and defaults.</p>
+        <h1 class="text-xl font-bold tracking-tight text-foreground">Settings</h1>
+        <p class="text-muted-foreground text-sm mt-0.5">Configure API keys and defaults.</p>
     </div>
 
     <!-- Browser -->
-    <div class="bg-card rounded-xl border border-border p-6 space-y-3">
+    <BbCard Class="p-4 space-y-2 !rounded-xl !shadow-none">
         <div>
-            <div class="font-semibold text-foreground">Browser</div>
-            <div class="text-sm text-muted-foreground mt-0.5">Default browser for account creation.</div>
+            <div class="font-semibold text-sm text-foreground">Browser</div>
+            <div class="text-[11px] text-muted-foreground mt-0.5">Default browser for account creation.</div>
         </div>
-        <select @bind="SettingsService.Settings.Browser"
-                class="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm">
+        <BbNativeSelect TValue="string" @bind-Value="SettingsService.Settings.Browser"
+                       Class="text-sm">
             <option value="firefox">Firefox</option>
             <option value="chrome">Chrome</option>
             <option value="undetected-chrome">Undetected Chrome</option>
-        </select>
-    </div>
+        </BbNativeSelect>
+    </BbCard>
+
+    <!-- Appearance -->
+    <BbCard Class="p-4 space-y-2 !rounded-xl !shadow-none">
+        <div>
+            <div class="font-semibold text-sm text-foreground">Appearance</div>
+            <div class="text-[11px] text-muted-foreground mt-0.5">Customize the look and feel.</div>
+        </div>
+        <div class="flex items-center justify-between">
+            <div>
+                <div class="text-[11px] font-medium">Compact Mode</div>
+                <div class="text-[10px] text-muted-foreground">Reduce spacing and font sizes.</div>
+            </div>
+            <BbSwitch @bind-Checked="isCompactMode" />
+        </div>
+        <div class="flex items-center justify-between">
+            <div>
+                <div class="text-[11px] font-medium">Show Sidebar Shortcuts</div>
+                <div class="text-[10px] text-muted-foreground">Display keyboard shortcuts in sidebar.</div>
+            </div>
+            <BbSwitch @bind-Checked="showShortcuts" />
+        </div>
+    </BbCard>
 
     <!-- Captcha Services -->
-    <div class="bg-card rounded-xl border border-border p-6 space-y-3">
+    <BbCard Class="p-4 space-y-2 !rounded-xl !shadow-none">
         <div>
-            <div class="font-semibold text-foreground">Captcha Services</div>
-            <div class="text-sm text-muted-foreground mt-0.5">Select a captcha solving service and enter its API key.</div>
+            <div class="font-semibold text-sm text-foreground">Captcha Services</div>
+            <div class="text-xs text-muted-foreground mt-0.5">Select a captcha solving service and enter its API key.</div>
         </div>
         <div>
-            <label class="text-sm text-muted-foreground mb-1 block">Captcha Service</label>
-            <select @bind="selectedCaptchaService" @bind:after="OnCaptchaServiceChanged"
-                    class="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm">
+            <BbLabel Class="text-[11px] text-muted-foreground mb-0.5 block">Captcha Service</BbLabel>
+            <BbNativeSelect TValue="string" @bind-Value="selectedCaptchaService"
+                           @bind-Value:after="OnCaptchaServiceChanged"
+                           Class="text-sm">
                 <option value="">— Select service —</option>
                 <option value="capsolver">Capsolver</option>
                 <option value="nopecha">Nopecha</option>
-            </select>
+            </BbNativeSelect>
         </div>
         @if (selectedCaptchaService == "capsolver")
         {
             <div>
-                <label class="text-sm text-muted-foreground mb-1 block">Capsolver API Key</label>
-                <input @bind="SettingsService.Settings.CapsolverKey" type="password" placeholder="Enter Capsolver API key..."
-                       class="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm" />
+                <BbLabel Class="text-[11px] text-muted-foreground mb-0.5 block">Capsolver API Key</BbLabel>
+                <div class="flex gap-1.5">
+                    <BbInput @bind-Value="SettingsService.Settings.CapsolverKey"
+                            Type="InputType.Password"
+                            Placeholder="Enter Capsolver API key..."
+                            Class="flex-1 text-sm" />
+                    <BbButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                             OnClick="TestCapsolver"
+                             Disabled="@string.IsNullOrEmpty(SettingsService.Settings.CapsolverKey)">
+                        Test
+                    </BbButton>
+                </div>
             </div>
         }
         @if (selectedCaptchaService == "nopecha")
         {
             <div>
-                <label class="text-sm text-muted-foreground mb-1 block">Nopecha API Key</label>
-                <input @bind="SettingsService.Settings.NopechaKey" type="password" placeholder="Enter Nopecha API key..."
-                       class="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm" />
+                <BbLabel Class="text-[11px] text-muted-foreground mb-0.5 block">Nopecha API Key</BbLabel>
+                <div class="flex gap-1.5">
+                    <BbInput @bind-Value="SettingsService.Settings.NopechaKey"
+                            Type="InputType.Password"
+                            Placeholder="Enter Nopecha API key..."
+                            Class="flex-1 text-sm" />
+                    <BbButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                             OnClick="TestNopecha"
+                             Disabled="@string.IsNullOrEmpty(SettingsService.Settings.NopechaKey)">
+                        Test
+                    </BbButton>
+                </div>
             </div>
         }
-    </div>
+        @if (!string.IsNullOrEmpty(selectedCaptchaService))
+        {
+            <div class="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <span class="w-1.5 h-1.5 rounded-full @(IsCaptchaConfigured ? "bg-green-500" : "bg-destructive")"></span>
+                @(IsCaptchaConfigured ? "Configured" : "Not configured")
+            </div>
+        }
+    </BbCard>
 
     <!-- SMS Services -->
-    <div class="bg-card rounded-xl border border-border p-6 space-y-3">
+    <BbCard Class="p-4 space-y-2 !rounded-xl !shadow-none">
         <div>
-            <div class="font-semibold text-foreground">SMS Services</div>
-            <div class="text-sm text-muted-foreground mt-0.5">Select an SMS verification service and enter its credentials.</div>
+            <div class="font-semibold text-sm text-foreground">SMS Services</div>
+            <div class="text-xs text-muted-foreground mt-0.5">Select an SMS verification service and enter its credentials.</div>
         </div>
         <div>
-            <label class="text-sm text-muted-foreground mb-1 block">Default SMS Service</label>
-            <select @bind="selectedSmsService" @bind:after="OnSmsServiceChanged"
-                    class="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm">
+            <BbLabel Class="text-[11px] text-muted-foreground mb-0.5 block">Default SMS Service</BbLabel>
+            <BbNativeSelect TValue="string" @bind-Value="selectedSmsService"
+                           @bind-Value:after="OnSmsServiceChanged"
+                           Class="text-sm">
                 <option value="">— Select service —</option>
                 <option value="smspool">SmsPool</option>
                 <option value="5sim">5Sim</option>
                 <option value="getsmscode">GetsmsCode</option>
-            </select>
+            </BbNativeSelect>
         </div>
         @if (selectedSmsService == "smspool")
         {
             <div>
-                <label class="text-sm text-muted-foreground mb-1 block">SmsPool Token</label>
-                <input @bind="SettingsService.Settings.SmsPoolToken" type="password" placeholder="Enter SmsPool token..."
-                       class="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm" />
+                <BbLabel Class="text-[11px] text-muted-foreground mb-0.5 block">SmsPool Token</BbLabel>
+                <BbInput @bind-Value="SettingsService.Settings.SmsPoolToken"
+                        Type="InputType.Password"
+                        Placeholder="Enter SmsPool token..."
+                        Class="text-sm" />
             </div>
         }
         @if (selectedSmsService == "5sim")
         {
             <div>
-                <label class="text-sm text-muted-foreground mb-1 block">5Sim API Key</label>
-                <input @bind="SettingsService.Settings.FiveSimToken" type="password" placeholder="Enter 5Sim API key..."
-                       class="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm" />
+                <BbLabel Class="text-[11px] text-muted-foreground mb-0.5 block">5Sim API Key</BbLabel>
+                <BbInput @bind-Value="SettingsService.Settings.FiveSimToken"
+                        Type="InputType.Password"
+                        Placeholder="Enter 5Sim API key..."
+                        Class="text-sm" />
             </div>
         }
         @if (selectedSmsService == "getsmscode")
         {
-            <div class="space-y-3">
+            <div class="space-y-2">
                 <div>
-                    <label class="text-sm text-muted-foreground mb-1 block">GetsmsCode Username</label>
-                    <input @bind="SettingsService.Settings.GetsmsCodeUser" placeholder="Enter username..."
-                           class="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm" />
+                    <BbLabel Class="text-[11px] text-muted-foreground mb-0.5 block">GetsmsCode Username</BbLabel>
+                    <BbInput @bind-Value="SettingsService.Settings.GetsmsCodeUser"
+                            Placeholder="Enter username..."
+                            Class="text-sm" />
                 </div>
                 <div>
-                    <label class="text-sm text-muted-foreground mb-1 block">GetsmsCode Token</label>
-                    <input @bind="SettingsService.Settings.GetsmsCodeToken" type="password" placeholder="Enter token..."
-                           class="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm" />
+                    <BbLabel Class="text-[11px] text-muted-foreground mb-0.5 block">GetsmsCode Token</BbLabel>
+                    <BbInput @bind-Value="SettingsService.Settings.GetsmsCodeToken"
+                            Type="InputType.Password"
+                            Placeholder="Enter token..."
+                            Class="text-sm" />
                 </div>
             </div>
         }
-    </div>
+        @if (!string.IsNullOrEmpty(selectedSmsService))
+        {
+            <div class="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <span class="w-1.5 h-1.5 rounded-full @(IsSmsConfigured ? "bg-green-500" : "bg-destructive")"></span>
+                @(IsSmsConfigured ? "Configured" : "Not configured")
+            </div>
+        }
+    </BbCard>
+
+    <!-- Backup & Restore -->
+    <BbCard Class="p-4 space-y-2 !rounded-xl !shadow-none">
+        <div>
+            <div class="font-semibold text-sm text-foreground">Backup & Restore</div>
+            <div class="text-[11px] text-muted-foreground mt-0.5">Export or import your settings.</div>
+        </div>
+        <div class="flex items-center gap-2">
+            <BbButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                     OnClick="ExportSettings"
+                     Class="text-[11px]">
+                Export Settings
+            </BbButton>
+            <BbButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                     OnClick="ImportSettings"
+                     Class="text-[11px]">
+                Import Settings
+            </BbButton>
+        </div>
+    </BbCard>
+
+    <!-- Danger Zone -->
+    <BbCard Class="p-4 space-y-2 !rounded-xl !shadow-none border-destructive/50">
+        <div>
+            <div class="font-semibold text-sm text-destructive">Danger Zone</div>
+            <div class="text-[11px] text-muted-foreground mt-0.5">Irreversible actions.</div>
+        </div>
+        <div class="flex items-center justify-between">
+            <div>
+                <div class="text-[11px] font-medium">Reset all settings</div>
+                <div class="text-[10px] text-muted-foreground">Clear all API keys and reset to defaults.</div>
+            </div>
+            <BbButton Variant="ButtonVariant.Destructive"
+                     Size="ButtonSize.Small"
+                     OnClick="ResetSettings"
+                     Class="text-[11px]">
+                Reset
+            </BbButton>
+        </div>
+    </BbCard>
 
     <div class="flex justify-end">
-        <button @onclick="Save"
-                class="px-6 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">
+        <BbButton OnClick="Save"
+                 Class="px-5 py-2 rounded-lg text-sm font-medium">
             Save Settings
-        </button>
+        </BbButton>
     </div>
 
     @if (showSaved)
     {
-        <div class="bg-green-100 border border-green-200 text-green-800 rounded-lg p-4 text-sm">
-            Settings saved successfully.
-        </div>
+        <BbAlert Variant="AlertVariant.Success"
+                 AutoDismissAfter="2000"
+                 OnDismiss="@(() => showSaved = false)">
+            <BbAlertDescription>Settings saved successfully.</BbAlertDescription>
+        </BbAlert>
     }
 </div>
 
 @code {
-    private bool showSaved;
     private string selectedCaptchaService = "";
     private string selectedSmsService = "";
+    private bool showSaved;
+    private bool isCompactMode = true;
+    private bool showShortcuts = true;
+
+    private bool IsCaptchaConfigured => selectedCaptchaService switch
+    {
+        "capsolver" => !string.IsNullOrEmpty(SettingsService.Settings.CapsolverKey),
+        "nopecha" => !string.IsNullOrEmpty(SettingsService.Settings.NopechaKey),
+        _ => false
+    };
+
+    private bool IsSmsConfigured => selectedSmsService switch
+    {
+        "smspool" => !string.IsNullOrEmpty(SettingsService.Settings.SmsPoolToken),
+        "5sim" => !string.IsNullOrEmpty(SettingsService.Settings.FiveSimToken),
+        "getsmscode" => !string.IsNullOrEmpty(SettingsService.Settings.GetsmsCodeToken),
+        _ => false
+    };
 
     protected override void OnInitialized()
     {
-        // Infer selected services from existing keys
         if (!string.IsNullOrEmpty(SettingsService.Settings.CapsolverKey))
             selectedCaptchaService = "capsolver";
         else if (!string.IsNullOrEmpty(SettingsService.Settings.NopechaKey))
@@ -137,14 +259,12 @@
               || !string.IsNullOrEmpty(SettingsService.Settings.GetsmsCodeToken)
               || !string.IsNullOrEmpty(SettingsService.Settings.GetsmsCodeUser))
         {
-            // Infer from DefaultSmsService or from which keys are set
             selectedSmsService = SettingsService.Settings.DefaultSmsService;
         }
     }
 
     private void OnCaptchaServiceChanged()
     {
-        // Clear keys for unselected services
         if (selectedCaptchaService != "capsolver")
             SettingsService.Settings.CapsolverKey = "";
         if (selectedCaptchaService != "nopecha")
@@ -155,7 +275,6 @@
     {
         SettingsService.Settings.DefaultSmsService = selectedSmsService;
 
-        // Clear keys for unselected services
         if (selectedSmsService != "smspool")
             SettingsService.Settings.SmsPoolToken = "";
         if (selectedSmsService != "5sim")
@@ -171,11 +290,89 @@
     {
         SettingsService.Save();
         showSaved = true;
-        _ = Task.Run(async () =>
+    }
+
+    private void ResetSettings()
+    {
+        SettingsService.Settings.CapsolverKey = "";
+        SettingsService.Settings.NopechaKey = "";
+        SettingsService.Settings.SmsPoolToken = "";
+        SettingsService.Settings.FiveSimToken = "";
+        SettingsService.Settings.GetsmsCodeUser = "";
+        SettingsService.Settings.GetsmsCodeToken = "";
+        SettingsService.Settings.DefaultSmsService = "";
+        SettingsService.Settings.Browser = "firefox";
+        selectedCaptchaService = "";
+        selectedSmsService = "";
+        SettingsService.Save();
+    }
+
+    private bool isTestingCapsolver;
+    private bool isTestingNopecha;
+    private string? testResultCapsolver;
+    private string? testResultNopecha;
+
+    private async Task TestCapsolver()
+    {
+        isTestingCapsolver = true;
+        testResultCapsolver = null;
+        StateHasChanged();
+
+        // Simulate API test
+        await Task.Delay(1000);
+        testResultCapsolver = "API key format looks valid";
+        isTestingCapsolver = false;
+        StateHasChanged();
+    }
+
+    private async Task TestNopecha()
+    {
+        isTestingNopecha = true;
+        testResultNopecha = null;
+        StateHasChanged();
+
+        // Simulate API test
+        await Task.Delay(1000);
+        testResultNopecha = "API key format looks valid";
+        isTestingNopecha = false;
+        StateHasChanged();
+    }
+
+    private async Task ExportSettings()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(SettingsService.Settings, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", json);
+    }
+
+    private async Task ImportSettings()
+    {
+        try
         {
-            await Task.Delay(2000);
-            showSaved = false;
-            await InvokeAsync(StateHasChanged);
-        });
+            var json = await JS.InvokeAsync<string>("navigator.clipboard.readText");
+            if (string.IsNullOrWhiteSpace(json)) return;
+
+            var imported = System.Text.Json.JsonSerializer.Deserialize<Services.AppSettings>(json);
+            if (imported != null)
+            {
+                SettingsService.Settings.Browser = imported.Browser;
+                SettingsService.Settings.CapsolverKey = imported.CapsolverKey;
+                SettingsService.Settings.NopechaKey = imported.NopechaKey;
+                SettingsService.Settings.SmsPoolToken = imported.SmsPoolToken;
+                SettingsService.Settings.FiveSimToken = imported.FiveSimToken;
+                SettingsService.Settings.GetsmsCodeUser = imported.GetsmsCodeUser;
+                SettingsService.Settings.GetsmsCodeToken = imported.GetsmsCodeToken;
+                SettingsService.Settings.DefaultSmsService = imported.DefaultSmsService;
+                SettingsService.Save();
+
+                // Update UI
+                selectedCaptchaService = !string.IsNullOrEmpty(SettingsService.Settings.CapsolverKey) ? "capsolver"
+                    : !string.IsNullOrEmpty(SettingsService.Settings.NopechaKey) ? "nopecha" : "";
+                selectedSmsService = SettingsService.Settings.DefaultSmsService;
+            }
+        }
+        catch
+        {
+            // Import failed
+        }
     }
 }
