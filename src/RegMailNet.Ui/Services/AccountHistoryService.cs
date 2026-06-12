@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using RegMailNet;
 using RegMailNet.Ui.Models;
 
 namespace RegMailNet.Ui.Services;
@@ -62,7 +63,7 @@ public sealed class AccountHistoryService : IAccountHistoryService
             Password = result.Password,
             Provider = provider,
             CreatedAt = result.CreatedAt,
-            Status = result.Success ? "Created" : "Failed"
+            Status = result.Success ? AccountStatus.Created.ToValue() : AccountStatus.Failed.ToValue()
         });
     }
 
@@ -74,7 +75,7 @@ public sealed class AccountHistoryService : IAccountHistoryService
             Password = result.Password,
             Provider = provider,
             CreatedAt = DateTime.Now,
-            Status = "Created"
+            Status = AccountStatus.Created.ToValue()
         });
     }
 

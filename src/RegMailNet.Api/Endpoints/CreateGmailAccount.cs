@@ -1,4 +1,5 @@
 using FastEndpoints;
+using RegMailNet;
 using RegMailNet.Api.Requests;
 using RegMailNet.Api.Responses;
 
@@ -19,10 +20,10 @@ public sealed class CreateGmailAccount : Endpoint<CreateAccountRequest, AccountC
         try
         {
             var result = await manager.CreateGmailAccountAsync(
-                username: req.Username ?? "",
-                password: req.Password ?? "",
-                firstName: req.FirstName ?? "",
-                lastName: req.LastName ?? "",
+                username: req.Username ?? string.Empty,
+                password: req.Password ?? string.Empty,
+                firstName: req.FirstName ?? string.Empty,
+                lastName: req.LastName ?? string.Empty,
                 useProxy: req.UseProxy,
                 cancellationToken: ct);
 
@@ -30,7 +31,7 @@ public sealed class CreateGmailAccount : Endpoint<CreateAccountRequest, AccountC
             {
                 Email = result.Email,
                 Password = result.Password,
-                Provider = "gmail",
+                Provider = EmailProvider.Gmail.ToValue(),
                 CreatedAt = DateTime.UtcNow
             }, ct);
         }
@@ -39,7 +40,7 @@ public sealed class CreateGmailAccount : Endpoint<CreateAccountRequest, AccountC
             Logger.LogError(ex, "Failed to create Gmail account");
             await SendAsync(new AccountCreatedResponse
             {
-                Provider = "gmail",
+                Provider = EmailProvider.Gmail.ToValue(),
                 CreatedAt = DateTime.UtcNow
             }, 500, ct);
         }

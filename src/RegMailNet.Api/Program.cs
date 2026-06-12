@@ -1,7 +1,9 @@
 using FastEndpoints;
 using FastEndpoints.Swagger;
+using Microsoft.EntityFrameworkCore;
 using RegMailNet;
 using RegMailNet.Api.Configuration;
+using RegMailNet.Api.Data;
 using RegMailNet.Api.Services;
 using RegMailNet.Browser;
 using RegMailNet.Configuration;
@@ -37,9 +39,12 @@ builder.Services.AddSingleton(sp =>
         options: regMailNetOptions);
 });
 
-// File storage services
-builder.Services.AddSingleton<FileSettingsService>();
-builder.Services.AddSingleton<FileHistoryService>();
+// EF Core + PostgreSQL
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+
+builder.Services.AddScoped<EfSettingsService>();
+builder.Services.AddScoped<EfHistoryService>();
 
 builder.Services.AddFastEndpoints();
 builder.Services.SwaggerDocument();
@@ -59,5 +64,12 @@ var app = builder.Build();
 app.UseCors();
 app.UseFastEndpoints();
 app.UseSwaggerGen();
+
+// Apply pending migrations on startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.MigrateAsync();
+}
 
 app.Run();

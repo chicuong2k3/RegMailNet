@@ -14,7 +14,7 @@ public sealed class GetSettings : EndpointWithoutRequest<AppSettings>
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var service = Resolve<FileSettingsService>();
+        var service = Resolve<EfSettingsService>();
         var settings = await service.LoadAsync();
         await SendOkAsync(settings, ct);
     }

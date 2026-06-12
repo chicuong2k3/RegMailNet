@@ -32,7 +32,7 @@ public class OutlookProvider : IEmailProvider
 
     private readonly ILogger<OutlookProvider> _logger;
 
-    public string ProviderName => "outlook";
+    public string ProviderName => EmailProvider.Outlook.ToValue();
 
     public OutlookProvider(ILogger<OutlookProvider> logger)
     {
@@ -50,7 +50,7 @@ public class OutlookProvider : IEmailProvider
         string year,
         CancellationToken cancellationToken = default)
     {
-        return await CreateAccountAsync(page, username, password, firstName, lastName, "", month, day, year, false, cancellationToken);
+        return await CreateAccountAsync(page, username, password, firstName, lastName, string.Empty, month, day, year, false, cancellationToken);
     }
 
     public virtual async Task<AccountCreationResult> CreateAccountAsync(

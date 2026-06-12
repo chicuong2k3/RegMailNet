@@ -14,7 +14,7 @@ public sealed class AddHistory : Endpoint<AddHistoryRequest>
 
     public override async Task HandleAsync(AddHistoryRequest req, CancellationToken ct)
     {
-        var service = Resolve<FileHistoryService>();
+        var service = Resolve<EfHistoryService>();
         await service.AddAsync(req.Entry);
         await SendOkAsync(ct);
     }

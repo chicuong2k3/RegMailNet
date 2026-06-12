@@ -5,7 +5,7 @@ namespace RegMailNet.CaptchaSolvers;
 
 public class CapsolverExtension : ICaptchaSolver
 {
-    public string Name => "capsolver";
+    public string Name => CaptchaSolver.Capsolver.ToValue();
 
     public async Task ConfigureAsync(IBrowserContext context, string extensionBasePath, string apiKey)
     {

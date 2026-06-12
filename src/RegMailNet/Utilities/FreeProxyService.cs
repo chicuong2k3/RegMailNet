@@ -109,10 +109,10 @@ public partial class FreeProxyService : IFreeProxyService
 
     private record ProxyEntry
     {
-        public string Ip { get; init; } = "";
+        public string Ip { get; init; } = string.Empty;
         public int Port { get; init; }
-        public string CountryCode { get; init; } = "";
-        public string Country { get; init; } = "";
+        public string CountryCode { get; init; } = string.Empty;
+        public string Country { get; init; } = string.Empty;
         public bool IsHttps { get; init; }
     }
 }

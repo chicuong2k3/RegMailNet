@@ -77,7 +77,7 @@ public class RegMailNetManager
         bool useProxy = true,
         CancellationToken cancellationToken = default)
     {
-        var captchaKey = GetCaptchaKey("outlook");
+        var captchaKey = GetCaptchaKey(EmailProvider.Outlook.ToValue());
         var proxy = useProxy ? await GetProxyAsync(cancellationToken) : null;
 
         await using var browserPage = await _browserFactory.CreatePageAsync(
@@ -109,7 +109,7 @@ public class RegMailNetManager
             proxy: proxy,
             humanize: true);
 
-        var info = _dataGenerator.GenerateMissingInfo(username, password, firstName, lastName, "", birthdate);
+        var info = _dataGenerator.GenerateMissingInfo(username, password, firstName, lastName, string.Empty, birthdate);
         var bd = _dataGenerator.GetBirthdate(info.Birthdate);
 
         var smsKey = GetSmsKey();
@@ -129,7 +129,7 @@ public class RegMailNetManager
         bool useProxy = true,
         CancellationToken cancellationToken = default)
     {
-        var captchaKey = GetCaptchaKey("yahoo");
+        var captchaKey = GetCaptchaKey(EmailProvider.Yahoo.ToValue());
         var proxy = useProxy ? await GetProxyAsync(cancellationToken) : null;
 
         await using var browserPage = await _browserFactory.CreatePageAsync(
@@ -139,7 +139,7 @@ public class RegMailNetManager
 
         var smsKey = GetSmsKey();
 
-        var info = _dataGenerator.GenerateMissingInfo(username, password, firstName, lastName, "", birthdate);
+        var info = _dataGenerator.GenerateMissingInfo(username, password, firstName, lastName, string.Empty, birthdate);
         var bd = _dataGenerator.GetBirthdate(info.Birthdate);
 
         return await _yahooProvider.CreateAccountAsync(

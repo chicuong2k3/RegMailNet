@@ -50,9 +50,9 @@ builder.Services.AddScoped(sp =>
     {
         var keys = new Dictionary<string, string>();
         if (!string.IsNullOrEmpty(settingsService.Settings.CapsolverKey))
-            keys["capsolver"] = settingsService.Settings.CapsolverKey;
+            keys[CaptchaSolver.Capsolver.ToValue()] = settingsService.Settings.CapsolverKey;
         if (!string.IsNullOrEmpty(settingsService.Settings.NopechaKey))
-            keys["nopecha"] = settingsService.Settings.NopechaKey;
+            keys[CaptchaSolver.Nopecha.ToValue()] = settingsService.Settings.NopechaKey;
         return keys;
     }
 
@@ -60,11 +60,11 @@ builder.Services.AddScoped(sp =>
     {
         var keys = new Dictionary<string, Dictionary<string, string>>();
         if (!string.IsNullOrEmpty(settingsService.Settings.SmsPoolToken))
-            keys["smspool"] = new() { ["token"] = settingsService.Settings.SmsPoolToken };
+            keys[SmsService.SmsPool.ToValue()] = new() { ["token"] = settingsService.Settings.SmsPoolToken };
         if (!string.IsNullOrEmpty(settingsService.Settings.FiveSimToken))
-            keys["5sim"] = new() { ["token"] = settingsService.Settings.FiveSimToken };
+            keys[SmsService.FiveSim.ToValue()] = new() { ["token"] = settingsService.Settings.FiveSimToken };
         if (!string.IsNullOrEmpty(settingsService.Settings.GetsmsCodeToken))
-            keys["getsmscode"] = new()
+            keys[SmsService.GetsmsCode.ToValue()] = new()
             {
                 ["user"] = settingsService.Settings.GetsmsCodeUser,
                 ["token"] = settingsService.Settings.GetsmsCodeToken
@@ -74,14 +74,14 @@ builder.Services.AddScoped(sp =>
 
     var options = Options.Create(new RegMailNetOptions
     {
-        CaptchaServicesSupported = new List<string> { "capsolver", "nopecha" },
-        DefaultCaptchaService = "capsolver",
-        SmsServicesSupported = new List<string> { "getsmscode", "smspool", "5sim" },
+        CaptchaServicesSupported = new List<string> { CaptchaSolver.Capsolver.ToValue(), CaptchaSolver.Nopecha.ToValue() },
+        DefaultCaptchaService = CaptchaSolver.Capsolver.ToValue(),
+        SmsServicesSupported = new List<string> { SmsService.GetsmsCode.ToValue(), SmsService.SmsPool.ToValue(), SmsService.FiveSim.ToValue() },
         DefaultSmsService = settingsService.Settings.DefaultSmsService,
         SupportedSolversByEmail = new List<CaptchaSolverMapping>
         {
-            new() { EmailService = "outlook", Solvers = new List<string> { "capsolver", "nopecha" } },
-            new() { EmailService = "yahoo", Solvers = new List<string> { "capsolver", "nopecha" } }
+            new() { EmailService = EmailProvider.Outlook.ToValue(), Solvers = new List<string> { CaptchaSolver.Capsolver.ToValue(), CaptchaSolver.Nopecha.ToValue() } },
+            new() { EmailService = EmailProvider.Yahoo.ToValue(), Solvers = new List<string> { CaptchaSolver.Capsolver.ToValue(), CaptchaSolver.Nopecha.ToValue() } }
         }
     });
 

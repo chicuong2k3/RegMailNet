@@ -44,7 +44,7 @@ public class GmailProvider : IEmailProvider
     private readonly ISmsServiceFactory _smsServiceFactory;
     private readonly ILogger<GmailProvider> _logger;
 
-    public string ProviderName => "gmail";
+    public string ProviderName => EmailProvider.Gmail.ToValue();
 
     public GmailProvider(ISmsServiceFactory smsServiceFactory, ILogger<GmailProvider> logger)
     {
@@ -99,7 +99,7 @@ public class GmailProvider : IEmailProvider
             await Task.Delay(2000, cancellationToken);
             if (await WebHelpers.ElementExistsAsync(page, Sel.PhoneInput))
             {
-                var smsProvider = smsServiceFactory.Create(smsKey, "google");
+                var smsProvider = smsServiceFactory.Create(smsKey, EmailProvider.Google.ToValue());
                 var phoneInfo = await HandlePhoneVerificationAsync(page, smsProvider);
                 await HandleSmsCodeAsync(page, smsProvider, phoneInfo);
             }

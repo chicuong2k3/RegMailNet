@@ -26,16 +26,16 @@ public class SmsServiceFactory : ISmsServiceFactory
 
         return serviceName switch
         {
-            "getsmscode" => CreateGetsmsCode(dataDict, emailProvider, httpClient),
-            "smspool" => CreateSmsPool(dataDict, emailProvider, httpClient),
-            "5sim" => CreateFiveSim(dataDict, emailProvider, httpClient),
+            SmsServiceConstants.GetsmsCode => CreateGetsmsCode(dataDict, emailProvider, httpClient),
+            SmsServiceConstants.SmsPool => CreateSmsPool(dataDict, emailProvider, httpClient),
+            SmsServiceConstants.FiveSim => CreateFiveSim(dataDict, emailProvider, httpClient),
             _ => throw new ArgumentException($"Unsupported SMS service: {serviceName}")
         };
     }
 
     private GetsmsCodeService CreateGetsmsCode(Dictionary<string, string> data, string emailProvider, HttpClient httpClient)
     {
-        var project = emailProvider == "yahoo" ? "15" : "1";
+        var project = emailProvider == EmailProvider.Yahoo.ToValue() ? "15" : "1";
         var logger = _serviceProvider.GetRequiredService<ILogger<GetsmsCodeService>>();
         return new GetsmsCodeService(
             project,
@@ -48,7 +48,7 @@ public class SmsServiceFactory : ISmsServiceFactory
 
     private SmsPoolService CreateSmsPool(Dictionary<string, string> data, string emailProvider, HttpClient httpClient)
     {
-        var service = emailProvider == "yahoo" ? "1034" : "395";
+        var service = emailProvider == EmailProvider.Yahoo.ToValue() ? "1034" : "395";
         var logger = _serviceProvider.GetRequiredService<ILogger<SmsPoolService>>();
         return new SmsPoolService(
             service,

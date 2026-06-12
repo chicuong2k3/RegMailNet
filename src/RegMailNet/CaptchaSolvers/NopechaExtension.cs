@@ -4,7 +4,7 @@ namespace RegMailNet.CaptchaSolvers;
 
 public class NopechaExtension : ICaptchaSolver
 {
-    public string Name => "nopecha";
+    public string Name => CaptchaSolver.Nopecha.ToValue();
 
     public async Task ConfigureAsync(IBrowserContext context, string extensionBasePath, string apiKey)
     {

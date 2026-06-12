@@ -30,7 +30,7 @@ public class YahooProvider : IEmailProvider
     private readonly ISmsServiceFactory _smsServiceFactory;
     private readonly ILogger<YahooProvider> _logger;
 
-    public string ProviderName => "yahoo";
+    public string ProviderName => EmailProvider.Yahoo.ToValue();
 
     public YahooProvider(ISmsServiceFactory smsServiceFactory, ILogger<YahooProvider> logger)
     {
@@ -82,7 +82,7 @@ public class YahooProvider : IEmailProvider
 
             await WebHelpers.ClickAsync(page, Sel.SubmitButton);
 
-            var smsProvider = smsServiceFactory.Create(smsKey, "yahoo");
+            var smsProvider = smsServiceFactory.Create(smsKey, EmailProvider.Yahoo.ToValue());
             var phoneInfo = await HandlePhoneSubmissionAsync(page, smsProvider);
 
             if (!page.Url.Contains("phone-verify"))
