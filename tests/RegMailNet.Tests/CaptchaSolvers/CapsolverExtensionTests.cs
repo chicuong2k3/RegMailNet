@@ -42,7 +42,7 @@ public class CapsolverExtensionTests
     {
         var contextMock = new Mock<IBrowserContext>();
         contextMock.Setup(c => c.AddInitScriptAsync(It.IsAny<string>(), It.IsAny<string?>()))
-            .Returns(Task.CompletedTask);
+            .Returns(Task.FromResult(Mock.Of<IAsyncDisposable>()));
 
         var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempDir);
@@ -70,7 +70,7 @@ public class CapsolverExtensionTests
         var capturedScript = "";
         contextMock.Setup(c => c.AddInitScriptAsync(It.IsAny<string>(), It.IsAny<string?>()))
             .Callback<string, string?>((script, _) => capturedScript = script)
-            .Returns(Task.CompletedTask);
+            .Returns(Task.FromResult(Mock.Of<IAsyncDisposable>()));
 
         var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempDir);
