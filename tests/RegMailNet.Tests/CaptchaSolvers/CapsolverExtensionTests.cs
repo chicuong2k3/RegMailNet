@@ -41,7 +41,7 @@ public class CapsolverExtensionTests
     public async Task ConfigureAsync_ExtensionExists_CallsAddInitScript()
     {
         var contextMock = new Mock<IBrowserContext>();
-        contextMock.Setup(c => c.AddInitScriptAsync(It.IsAny<string>(), It.IsAny<string?>()))
+        contextMock.Setup(c => c.AddInitScriptAsync(It.IsAny<string>(), It.IsAny<string>()))
             .Returns(Task.FromResult(Mock.Of<IAsyncDisposable>()));
 
         var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
@@ -55,7 +55,7 @@ public class CapsolverExtensionTests
 
             contextMock.Verify(c => c.AddInitScriptAsync(
                 It.Is<string>(s => s.Contains("my-api-key")),
-                It.IsAny<string?>()), Times.Once);
+                It.IsAny<string>()), Times.Once);
         }
         finally
         {
@@ -68,8 +68,8 @@ public class CapsolverExtensionTests
     {
         var contextMock = new Mock<IBrowserContext>();
         var capturedScript = "";
-        contextMock.Setup(c => c.AddInitScriptAsync(It.IsAny<string>(), It.IsAny<string?>()))
-            .Callback<string, string?>((script, _) => capturedScript = script)
+        contextMock.Setup(c => c.AddInitScriptAsync(It.IsAny<string>(), It.IsAny<string>()))
+            .Callback<string, string>((script, _) => capturedScript = script)
             .Returns(Task.FromResult(Mock.Of<IAsyncDisposable>()));
 
         var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());

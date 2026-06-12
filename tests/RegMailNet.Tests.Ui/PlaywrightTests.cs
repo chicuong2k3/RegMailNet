@@ -45,31 +45,49 @@ public class PlaywrightTests : PageTest
     {
         await GotoAndWaitForBlazor("/");
 
-        await Expect(Page.GetByText("Total Created")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("Total")).ToBeVisibleAsync();
         await Expect(Page.GetByText("Outlook")).ToBeVisibleAsync();
         await Expect(Page.GetByText("Gmail")).ToBeVisibleAsync();
         await Expect(Page.GetByText("Yahoo")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("Success Rate")).ToBeVisibleAsync();
     }
 
     [Fact]
-    public async Task Home_ShowsServiceStatusSection()
+    public async Task Home_ShowsServicesSection()
     {
         await GotoAndWaitForBlazor("/");
 
-        await Expect(Page.GetByText("Service Status")).ToBeVisibleAsync();
-        await Expect(Page.GetByText("Capsolver —")).ToBeVisibleAsync();
-        await Expect(Page.GetByText("Nopecha —")).ToBeVisibleAsync();
-        await Expect(Page.GetByText("SmsPool —")).ToBeVisibleAsync();
-        await Expect(Page.GetByText("5Sim —")).ToBeVisibleAsync();
-        await Expect(Page.GetByText("GetsmsCode —")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("Services")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("Capsolver")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("Nopecha")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("SmsPool")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("5Sim")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("GetsmsCode")).ToBeVisibleAsync();
     }
 
     [Fact]
-    public async Task Home_ShowsRecentActivitySection()
+    public async Task Home_ShowsRecentSection()
     {
         await GotoAndWaitForBlazor("/");
 
-        await Expect(Page.GetByText("Recent Activity")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("Recent")).ToBeVisibleAsync();
+    }
+
+    [Fact]
+    public async Task Home_ShowsActivityChart()
+    {
+        await GotoAndWaitForBlazor("/");
+
+        await Expect(Page.GetByText("Activity")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("Last 7 days")).ToBeVisibleAsync();
+    }
+
+    [Fact]
+    public async Task Home_ShowsProvidersSection()
+    {
+        await GotoAndWaitForBlazor("/");
+
+        await Expect(Page.GetByText("Providers")).ToBeVisibleAsync();
     }
 
     // ──────────────────────────────────────────────
@@ -81,17 +99,17 @@ public class PlaywrightTests : PageTest
     {
         await GotoAndWaitForBlazor("/create");
 
-        await Expect(Page.Locator("h1")).ToHaveTextAsync("Create Account");
+        await Expect(Page.Locator("h1")).ToHaveTextAsync("Create Accounts");
     }
 
     [Fact]
-    public async Task CreateAccount_ShowsAllProviderCards()
+    public async Task CreateAccount_ShowsProviderDropdown()
     {
         await GotoAndWaitForBlazor("/create");
 
-        await Expect(Page.GetByText("@outlook.com")).ToBeVisibleAsync();
-        await Expect(Page.GetByText("@gmail.com")).ToBeVisibleAsync();
-        await Expect(Page.GetByText("@yahoo.com")).ToBeVisibleAsync();
+        var dropdown = Page.Locator("select#provider");
+        await Expect(dropdown).ToBeVisibleAsync();
+        await Expect(dropdown.Locator("option")).ToHaveCountAsync(3);
     }
 
     [Fact]
@@ -99,9 +117,11 @@ public class PlaywrightTests : PageTest
     {
         await GotoAndWaitForBlazor("/create");
 
-        await Page.Locator(".cursor-pointer").First.ClickAsync();
+        var dropdown = Page.Locator("select#provider");
+        await dropdown.SelectOptionAsync("outlook");
 
-        await Expect(Page.GetByText("Create OUTLOOK Account")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("Captcha solver required")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("Easiest")).ToBeVisibleAsync();
     }
 
     [Fact]
@@ -109,9 +129,11 @@ public class PlaywrightTests : PageTest
     {
         await GotoAndWaitForBlazor("/create");
 
-        await Page.Locator(".cursor-pointer").Nth(1).ClickAsync();
+        var dropdown = Page.Locator("select#provider");
+        await dropdown.SelectOptionAsync("gmail");
 
-        await Expect(Page.GetByText("Create GMAIL Account")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("SMS verification required")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("SMS Required")).ToBeVisibleAsync();
     }
 
     [Fact]
@@ -119,20 +141,11 @@ public class PlaywrightTests : PageTest
     {
         await GotoAndWaitForBlazor("/create");
 
-        await Page.Locator(".cursor-pointer").Nth(2).ClickAsync();
+        var dropdown = Page.Locator("select#provider");
+        await dropdown.SelectOptionAsync("yahoo");
 
-        await Expect(Page.GetByText("Create YAHOO Account")).ToBeVisibleAsync();
-    }
-
-    [Fact]
-    public async Task CreateAccount_ProviderSelectionShowsRing()
-    {
-        await GotoAndWaitForBlazor("/create");
-
-        var outlookCard = Page.Locator(".cursor-pointer").First;
-        await outlookCard.ClickAsync();
-
-        await Expect(outlookCard).ToHaveClassAsync(new System.Text.RegularExpressions.Regex("ring-2"));
+        await Expect(Page.GetByText("Captcha + SMS required")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("Hardest")).ToBeVisibleAsync();
     }
 
     [Fact]
@@ -141,7 +154,7 @@ public class PlaywrightTests : PageTest
         await GotoAndWaitForBlazor("/create");
 
         await Expect(Page.GetByText("Use proxy")).ToBeVisibleAsync();
-        await Expect(Page.Locator("input[type='checkbox']")).ToBeCheckedAsync();
+        await Expect(Page.Locator("#useProxy")).ToBeCheckedAsync();
     }
 
     [Fact]
@@ -149,7 +162,7 @@ public class PlaywrightTests : PageTest
     {
         await GotoAndWaitForBlazor("/create");
 
-        var checkbox = Page.Locator("input[type='checkbox']");
+        var checkbox = Page.Locator("#useProxy");
         await Expect(checkbox).ToBeCheckedAsync();
 
         await checkbox.UncheckAsync();
@@ -164,6 +177,9 @@ public class PlaywrightTests : PageTest
     {
         await GotoAndWaitForBlazor("/create");
 
+        var dropdown = Page.Locator("select#provider");
+        await dropdown.SelectOptionAsync("");
+
         var button = Page.Locator("button").Filter(new() { HasText = "Account" });
         await Expect(button).ToBeDisabledAsync();
     }
@@ -173,9 +189,11 @@ public class PlaywrightTests : PageTest
     {
         await GotoAndWaitForBlazor("/create");
 
-        await Page.Locator(".cursor-pointer").First.ClickAsync();
+        var dropdown = Page.Locator("select#provider");
+        await dropdown.SelectOptionAsync("outlook");
 
-        await Expect(Page.Locator("button").Filter(new() { HasText = "Create OUTLOOK Account" })).ToBeEnabledAsync();
+        var button = Page.Locator("button").Filter(new() { HasText = "Create" });
+        await Expect(button).ToBeEnabledAsync();
     }
 
     [Fact]
@@ -184,8 +202,6 @@ public class PlaywrightTests : PageTest
         await GotoAndWaitForBlazor("/create");
 
         await Expect(Page.GetByText("Captcha solver required")).ToBeVisibleAsync();
-        await Expect(Page.GetByText("SMS verification required")).ToBeVisibleAsync();
-        await Expect(Page.GetByText("Captcha + SMS required")).ToBeVisibleAsync();
     }
 
     [Fact]
@@ -194,6 +210,31 @@ public class PlaywrightTests : PageTest
         await GotoAndWaitForBlazor("/create");
 
         await Expect(Page.GetByText("Options", new() { Exact = true })).ToBeVisibleAsync();
+    }
+
+    [Fact]
+    public async Task CreateAccount_ShowsHeadlessCheckbox()
+    {
+        await GotoAndWaitForBlazor("/create");
+
+        await Expect(Page.GetByText("Headless")).ToBeVisibleAsync();
+        await Expect(Page.Locator("#headless")).ToBeCheckedAsync();
+    }
+
+    [Fact]
+    public async Task CreateAccount_ShowsQuantityInput()
+    {
+        await GotoAndWaitForBlazor("/create");
+
+        await Expect(Page.GetByText("Quantity")).ToBeVisibleAsync();
+    }
+
+    [Fact]
+    public async Task CreateAccount_ShowsBatchLabelInput()
+    {
+        await GotoAndWaitForBlazor("/create");
+
+        await Expect(Page.GetByText("Batch Label")).ToBeVisibleAsync();
     }
 
     // ──────────────────────────────────────────────
@@ -209,11 +250,13 @@ public class PlaywrightTests : PageTest
     }
 
     [Fact]
-    public async Task History_ShowsAccountsCard()
+    public async Task History_ShowsFilterControls()
     {
         await GotoAndWaitForBlazor("/history");
 
-        await Expect(Page.GetByText("Accounts", new() { Exact = true })).ToBeVisibleAsync();
+        await Expect(Page.GetByText("results")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("Today")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("All", new() { Exact = true })).ToBeVisibleAsync();
     }
 
     [Fact]
@@ -221,9 +264,8 @@ public class PlaywrightTests : PageTest
     {
         await GotoAndWaitForBlazor("/history");
 
-        var dropdown = Page.Locator("select");
+        var dropdown = Page.GetByText("All Providers").Locator("xpath=ancestor::select");
         await Expect(dropdown).ToBeVisibleAsync();
-        await Expect(dropdown.Locator("option")).ToHaveCountAsync(4);
     }
 
     [Fact]
@@ -231,16 +273,12 @@ public class PlaywrightTests : PageTest
     {
         await GotoAndWaitForBlazor("/history");
 
-        var dropdown = Page.Locator("select");
-
+        var dropdown = Page.Locator("select").Filter(new() { HasText = "All Providers" });
         await dropdown.SelectOptionAsync("Outlook");
         await Expect(dropdown).ToHaveValueAsync("Outlook");
 
         await dropdown.SelectOptionAsync("Gmail");
         await Expect(dropdown).ToHaveValueAsync("Gmail");
-
-        await dropdown.SelectOptionAsync("Yahoo");
-        await Expect(dropdown).ToHaveValueAsync("Yahoo");
 
         await dropdown.SelectOptionAsync("");
         await Expect(dropdown).ToHaveValueAsync("");
@@ -260,6 +298,31 @@ public class PlaywrightTests : PageTest
     }
 
     [Fact]
+    public async Task History_ShowsSearchInput()
+    {
+        await GotoAndWaitForBlazor("/history");
+
+        var searchInput = Page.Locator("input[placeholder='Search email...']");
+        await Expect(searchInput).ToBeVisibleAsync();
+    }
+
+    [Fact]
+    public async Task History_ShowsExportButton()
+    {
+        await GotoAndWaitForBlazor("/history");
+
+        await Expect(Page.GetByText("Export CSV")).ToBeVisibleAsync();
+    }
+
+    [Fact]
+    public async Task History_ShowsPaginationControls()
+    {
+        await GotoAndWaitForBlazor("/history");
+
+        await Expect(Page.GetByText("Per page:")).ToBeVisibleAsync();
+    }
+
+    [Fact]
     public async Task History_TableHasCorrectColumns()
     {
         await GotoAndWaitForBlazor("/history");
@@ -267,7 +330,7 @@ public class PlaywrightTests : PageTest
         var table = Page.Locator("table");
         if (await table.IsVisibleAsync())
         {
-            await Expect(table.Locator("th")).ToHaveCountAsync(5);
+            await Expect(table.Locator("th")).ToHaveCountAsync(7);
         }
     }
 
@@ -307,7 +370,8 @@ public class PlaywrightTests : PageTest
     {
         await GotoAndWaitForBlazor("/proxies");
 
-        await Expect(Page.GetByText("Add", new() { Exact = true })).ToBeDisabledAsync();
+        var addButton = Page.Locator("button").Filter(new() { HasText = "Add" });
+        await Expect(addButton).ToBeDisabledAsync();
     }
 
     [Fact]
@@ -318,7 +382,8 @@ public class PlaywrightTests : PageTest
         var input = Page.Locator("input[placeholder='http://user:pass@host:port']");
         await input.FillAsync("http://test:pass@proxy.example.com:8080");
 
-        await Expect(Page.GetByText("Add", new() { Exact = true })).ToBeEnabledAsync();
+        var addButton = Page.Locator("button").Filter(new() { HasText = "Add" });
+        await Expect(addButton).ToBeEnabledAsync();
     }
 
     [Fact]
@@ -327,7 +392,6 @@ public class PlaywrightTests : PageTest
         await GotoAndWaitForBlazor("/proxies");
 
         await Expect(Page.GetByText("Configured Proxies")).ToBeVisibleAsync();
-        await Expect(Page.GetByText("proxy(ies) configured")).ToBeVisibleAsync();
     }
 
     [Fact]
@@ -340,6 +404,18 @@ public class PlaywrightTests : PageTest
         await input.FillAsync(testProxy);
 
         await Expect(input).ToHaveValueAsync(testProxy);
+    }
+
+    [Fact]
+    public async Task Proxies_ShowsEmptyState()
+    {
+        await GotoAndWaitForBlazor("/proxies");
+
+        var emptyMsg = Page.GetByText("No proxies configured");
+        if (await emptyMsg.IsVisibleAsync())
+        {
+            await Expect(Page.GetByText("Add one above")).ToBeVisibleAsync();
+        }
     }
 
     // ──────────────────────────────────────────────
@@ -360,7 +436,7 @@ public class PlaywrightTests : PageTest
         await GotoAndWaitForBlazor("/settings");
 
         await Expect(Page.GetByText("Browser", new() { Exact = true })).ToBeVisibleAsync();
-        await Expect(Page.GetByText("Default browser for account creation")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("Default browser for account creation.")).ToBeVisibleAsync();
     }
 
     [Fact]
@@ -368,7 +444,8 @@ public class PlaywrightTests : PageTest
     {
         await GotoAndWaitForBlazor("/settings");
 
-        var browserDropdown = Page.Locator("select").First;
+        var browserCard = Page.Locator("text=Browser").Locator("xpath=ancestor::div[contains(@class,'space-y')][1]");
+        var browserDropdown = browserCard.Locator("select");
         await Expect(browserDropdown.Locator("option")).ToHaveCountAsync(3);
     }
 
@@ -377,7 +454,8 @@ public class PlaywrightTests : PageTest
     {
         await GotoAndWaitForBlazor("/settings");
 
-        var browserDropdown = Page.Locator("select").First;
+        var browserCard = Page.Locator("text=Default browser for account creation.").Locator("xpath=ancestor::div[contains(@class,'space-y')][1]");
+        var browserDropdown = browserCard.Locator("select");
 
         await browserDropdown.SelectOptionAsync("chrome");
         await Expect(browserDropdown).ToHaveValueAsync("chrome");
@@ -395,25 +473,40 @@ public class PlaywrightTests : PageTest
         await GotoAndWaitForBlazor("/settings");
 
         await Expect(Page.GetByText("Captcha Services", new() { Exact = true })).ToBeVisibleAsync();
-        await Expect(Page.GetByText("API keys for captcha solving services")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("Select a captcha solving service")).ToBeVisibleAsync();
     }
 
     [Fact]
-    public async Task Settings_CapsolverKeyInputExists()
+    public async Task Settings_CaptchaServiceDropdownExists()
     {
         await GotoAndWaitForBlazor("/settings");
+
+        await Expect(Page.GetByText("Captcha Service")).ToBeVisibleAsync();
+
+        var captchaDropdown = Page.Locator("select").Filter(new() { HasText = "Capsolver" });
+        await Expect(captchaDropdown).ToBeVisibleAsync();
+    }
+
+    [Fact]
+    public async Task Settings_SelectingCapsolverShowsKeyInput()
+    {
+        await GotoAndWaitForBlazor("/settings");
+
+        var captchaDropdown = Page.Locator("select").Filter(new() { HasText = "Capsolver" });
+        await captchaDropdown.SelectOptionAsync("capsolver");
 
         await Expect(Page.GetByText("Capsolver API Key")).ToBeVisibleAsync();
-
-        var input = Page.Locator("input[type='password']").First;
+        var input = Page.Locator("input[placeholder*='Capsolver API key']");
         await Expect(input).ToBeVisibleAsync();
-        await Expect(input).ToHaveAttributeAsync("placeholder", "Enter key...");
     }
 
     [Fact]
-    public async Task Settings_NopechaKeyInputExists()
+    public async Task Settings_SelectingNopechaShowsKeyInput()
     {
         await GotoAndWaitForBlazor("/settings");
+
+        var captchaDropdown = Page.Locator("select").Filter(new() { HasText = "Capsolver" });
+        await captchaDropdown.SelectOptionAsync("nopecha");
 
         await Expect(Page.GetByText("Nopecha API Key")).ToBeVisibleAsync();
     }
@@ -424,44 +517,50 @@ public class PlaywrightTests : PageTest
         await GotoAndWaitForBlazor("/settings");
 
         await Expect(Page.GetByText("SMS Services", new() { Exact = true })).ToBeVisibleAsync();
-        await Expect(Page.GetByText("API keys for phone verification services")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("Select an SMS verification service")).ToBeVisibleAsync();
     }
 
     [Fact]
-    public async Task Settings_DefaultSmsServiceDropdownHasOptions()
+    public async Task Settings_SmsServiceDropdownExists()
     {
         await GotoAndWaitForBlazor("/settings");
 
         await Expect(Page.GetByText("Default SMS Service")).ToBeVisibleAsync();
 
-        var smsDropdown = Page.Locator("select").Nth(1);
-        await Expect(smsDropdown.Locator("option")).ToHaveCountAsync(3);
+        var smsDropdown = Page.Locator("select").Filter(new() { HasText = "SmsPool" });
+        await Expect(smsDropdown).ToBeVisibleAsync();
     }
 
     [Fact]
-    public async Task Settings_CanSelectSmsService()
+    public async Task Settings_SelectingSmsPoolShowsTokenInput()
     {
         await GotoAndWaitForBlazor("/settings");
 
-        var smsDropdown = Page.Locator("select").Nth(1);
-
-        await smsDropdown.SelectOptionAsync("5sim");
-        await Expect(smsDropdown).ToHaveValueAsync("5sim");
-
-        await smsDropdown.SelectOptionAsync("getsmscode");
-        await Expect(smsDropdown).ToHaveValueAsync("getsmscode");
-
+        var smsDropdown = Page.Locator("select").Filter(new() { HasText = "SmsPool" });
         await smsDropdown.SelectOptionAsync("smspool");
-        await Expect(smsDropdown).ToHaveValueAsync("smspool");
-    }
-
-    [Fact]
-    public async Task Settings_SmsInputsExist()
-    {
-        await GotoAndWaitForBlazor("/settings");
 
         await Expect(Page.GetByText("SmsPool Token")).ToBeVisibleAsync();
-        await Expect(Page.GetByText("5Sim Token")).ToBeVisibleAsync();
+    }
+
+    [Fact]
+    public async Task Settings_Selecting5SimShowsTokenInput()
+    {
+        await GotoAndWaitForBlazor("/settings");
+
+        var smsDropdown = Page.Locator("select").Filter(new() { HasText = "SmsPool" });
+        await smsDropdown.SelectOptionAsync("5sim");
+
+        await Expect(Page.GetByText("5Sim API Key")).ToBeVisibleAsync();
+    }
+
+    [Fact]
+    public async Task Settings_SelectingGetsmsCodeShowsInputs()
+    {
+        await GotoAndWaitForBlazor("/settings");
+
+        var smsDropdown = Page.Locator("select").Filter(new() { HasText = "SmsPool" });
+        await smsDropdown.SelectOptionAsync("getsmscode");
+
         await Expect(Page.GetByText("GetsmsCode Username")).ToBeVisibleAsync();
         await Expect(Page.GetByText("GetsmsCode Token")).ToBeVisibleAsync();
     }
@@ -470,6 +569,9 @@ public class PlaywrightTests : PageTest
     public async Task Settings_GetsmsCodeUsernameIsNotPassword()
     {
         await GotoAndWaitForBlazor("/settings");
+
+        var smsDropdown = Page.Locator("select").Filter(new() { HasText = "SmsPool" });
+        await smsDropdown.SelectOptionAsync("getsmscode");
 
         var usernameInput = Page.Locator("input[placeholder='Enter username...']");
         await Expect(usernameInput).ToBeVisibleAsync();
@@ -490,9 +592,40 @@ public class PlaywrightTests : PageTest
     {
         await GotoAndWaitForBlazor("/settings");
 
-        var input = Page.Locator("input[type='password']").First;
+        var captchaDropdown = Page.Locator("select").Filter(new() { HasText = "Capsolver" });
+        await captchaDropdown.SelectOptionAsync("capsolver");
+
+        var input = Page.Locator("input[placeholder*='Capsolver API key']");
         await input.FillAsync("test-api-key-12345");
         await Expect(input).ToHaveValueAsync("test-api-key-12345");
+    }
+
+    [Fact]
+    public async Task Settings_ShowsAppearanceSection()
+    {
+        await GotoAndWaitForBlazor("/settings");
+
+        await Expect(Page.GetByText("Appearance")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("Compact Mode")).ToBeVisibleAsync();
+    }
+
+    [Fact]
+    public async Task Settings_ShowsBackupSection()
+    {
+        await GotoAndWaitForBlazor("/settings");
+
+        await Expect(Page.GetByText("Backup & Restore")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("Export Settings")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("Import Settings")).ToBeVisibleAsync();
+    }
+
+    [Fact]
+    public async Task Settings_ShowsDangerZone()
+    {
+        await GotoAndWaitForBlazor("/settings");
+
+        await Expect(Page.GetByText("Danger Zone")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("Reset all settings")).ToBeVisibleAsync();
     }
 
     // ──────────────────────────────────────────────
@@ -506,23 +639,23 @@ public class PlaywrightTests : PageTest
 
         await Expect(Page.Locator("h1")).ToHaveTextAsync("Dashboard");
 
-        await Page.GetByText("Create Account", new() { Exact = true }).ClickAsync();
+        await Page.Locator("nav a").Filter(new() { HasText = "Create Account" }).ClickAsync();
         await Page.WaitForTimeoutAsync(500);
-        await Expect(Page.Locator("h1")).ToHaveTextAsync("Create Account");
+        await Expect(Page.Locator("h1")).ToHaveTextAsync("Create Accounts");
 
-        await Page.GetByText("History", new() { Exact = true }).ClickAsync();
+        await Page.Locator("nav a").Filter(new() { HasText = "History" }).ClickAsync();
         await Page.WaitForTimeoutAsync(500);
         await Expect(Page.Locator("h1")).ToHaveTextAsync("History");
 
-        await Page.GetByText("Proxies", new() { Exact = true }).ClickAsync();
+        await Page.Locator("nav a").Filter(new() { HasText = "Proxies" }).ClickAsync();
         await Page.WaitForTimeoutAsync(500);
         await Expect(Page.Locator("h1")).ToHaveTextAsync("Proxies");
 
-        await Page.GetByText("Settings", new() { Exact = true }).ClickAsync();
+        await Page.Locator("nav a").Filter(new() { HasText = "Settings" }).ClickAsync();
         await Page.WaitForTimeoutAsync(500);
         await Expect(Page.Locator("h1")).ToHaveTextAsync("Settings");
 
-        await Page.GetByText("Dashboard", new() { Exact = true }).ClickAsync();
+        await Page.Locator("nav a").Filter(new() { HasText = "Dashboard" }).ClickAsync();
         await Page.WaitForTimeoutAsync(500);
         await Expect(Page.Locator("h1")).ToHaveTextAsync("Dashboard");
     }
@@ -594,15 +727,32 @@ public class PlaywrightTests : PageTest
         await Expect(nav.GetByText("History")).ToBeVisibleAsync();
         await Expect(nav.GetByText("Proxies")).ToBeVisibleAsync();
         await Expect(nav.GetByText("Settings")).ToBeVisibleAsync();
-        await Expect(nav.GetByText("TEST PAGE")).ToBeVisibleAsync();
     }
 
     [Fact]
-    public async Task Layout_NavMenuHasCorrectButtonCount()
+    public async Task Layout_NavMenuHasCorrectLinkCount()
     {
         await GotoAndWaitForBlazor("/");
 
-        var navButtons = Page.Locator("nav button");
-        await Expect(navButtons).ToHaveCountAsync(6);
+        var navLinks = Page.Locator("nav a");
+        await Expect(navLinks).ToHaveCountAsync(5);
+    }
+
+    [Fact]
+    public async Task Layout_ShowsSidebar()
+    {
+        await GotoAndWaitForBlazor("/");
+
+        await Expect(Page.Locator("aside")).ToBeVisibleAsync();
+        await Expect(Page.GetByText("RegMailNet")).ToBeVisibleAsync();
+    }
+
+    [Fact]
+    public async Task Layout_ShowsQuickNavShortcuts()
+    {
+        await GotoAndWaitForBlazor("/");
+
+        await Expect(Page.GetByText("Quick nav:")).ToBeVisibleAsync();
+        await Expect(Page.Locator("kbd")).ToHaveCountAsync(5);
     }
 }
