@@ -20,10 +20,6 @@ public sealed class CreateOutlookAccount : Endpoint<CreateAccountRequest, Accoun
         try
         {
             var result = await manager.CreateOutlookAccountAsync(
-                username: req.Username ?? string.Empty,
-                password: req.Password ?? string.Empty,
-                firstName: req.FirstName ?? string.Empty,
-                lastName: req.LastName ?? string.Empty,
                 useProxy: req.UseProxy,
                 cancellationToken: ct);
 

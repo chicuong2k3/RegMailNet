@@ -1,4 +1,5 @@
 using BlazorBlueprint.Components;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.Extensions.Options;
@@ -18,10 +19,11 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 var apiBaseUrl = builder.Configuration["ApiBaseUrl"];
 builder.Services.AddScoped(sp =>
 {
-    var client = new HttpClient();
-    if (!string.IsNullOrEmpty(apiBaseUrl))
-        client.BaseAddress = new Uri(apiBaseUrl);
-    return client;
+    var nav = sp.GetRequiredService<NavigationManager>();
+    var baseUri = !string.IsNullOrEmpty(apiBaseUrl)
+        ? apiBaseUrl
+        : nav.BaseUri;
+    return new HttpClient { BaseAddress = new Uri(baseUri) };
 });
 
 builder.Services.AddBlazorBlueprintComponents();

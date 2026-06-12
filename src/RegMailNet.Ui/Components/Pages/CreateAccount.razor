@@ -1,5 +1,5 @@
 @page "/create"
-@inject RegMailNetManager Manager
+@inject Services.IAccountCreationService AccountCreation
 @inject Services.AccountHistoryService History
 @inject Services.SettingsService SettingsService
 @using RegMailNet.EmailProviders
@@ -306,11 +306,11 @@
                 currentEmail = $"Creating #{i + 1}...";
                 StateHasChanged();
 
-                AccountCreationResult result = selectedProvider switch
+                AccountCreatedResult result = selectedProvider switch
                 {
-                    "outlook" => await Manager.CreateOutlookAccountAsync(useProxy: useProxy),
-                    "gmail" => await Manager.CreateGmailAccountAsync(useProxy: useProxy),
-                    "yahoo" => await Manager.CreateYahooAccountAsync(useProxy: useProxy),
+                    "outlook" => await AccountCreation.CreateOutlookAsync(useProxy: useProxy),
+                    "gmail" => await AccountCreation.CreateGmailAsync(useProxy: useProxy),
+                    "yahoo" => await AccountCreation.CreateYahooAsync(useProxy: useProxy),
                     _ => throw new ArgumentException("Unknown provider")
                 };
 

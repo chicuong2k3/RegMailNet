@@ -17,6 +17,7 @@ public static class ServiceCollectionExtensions
             configureDefaults?.Invoke(options);
         });
 
+        services.AddHttpClient();
         services.AddSingleton<DataGenerator>();
         services.AddSingleton<IBrowserFactory, CamoufoxBrowserFactory>();
         services.AddSingleton<IFreeProxyService, FreeProxyService>();

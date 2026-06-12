@@ -20,10 +20,6 @@ public sealed class CreateGmailAccount : Endpoint<CreateAccountRequest, AccountC
         try
         {
             var result = await manager.CreateGmailAccountAsync(
-                username: req.Username ?? string.Empty,
-                password: req.Password ?? string.Empty,
-                firstName: req.FirstName ?? string.Empty,
-                lastName: req.LastName ?? string.Empty,
                 useProxy: req.UseProxy,
                 cancellationToken: ct);
 
