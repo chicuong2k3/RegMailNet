@@ -1,100 +1,129 @@
 @page "/"
-@inject Services.AccountHistoryService History
-@inject Services.SettingsService SettingsService
+@inject Services.IAccountHistoryService HistoryService
+@inject Services.ISettingsService SettingsService
+@using RegMailNet.Ui.Models
 
-<div class="max-w-4xl space-y-6">
-    <div>
-        <h1 class="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
-        <p class="text-muted-foreground mt-1">Overview of your email account creation.</p>
+@if (isLoading)
+{
+    <div class="flex items-center justify-center py-20">
+        <p class="text-muted-foreground">Loading...</p>
     </div>
+}
+else
+{
+    <div class="max-w-4xl space-y-6">
+        <div>
+            <h1 class="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
+            <p class="text-muted-foreground mt-1">Overview of your email account creation.</p>
+        </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <BbCard>
+                <BbCardHeader>
+                    <BbCardDescription>Total Created</BbCardDescription>
+                    <BbCardTitle Class="text-2xl">@entries.Count(e => e.Status == "Success")</BbCardTitle>
+                </BbCardHeader>
+            </BbCard>
+            <BbCard>
+                <BbCardHeader>
+                    <BbCardDescription>Outlook</BbCardDescription>
+                    <BbCardTitle Class="text-2xl">@entries.Count(e => e.Provider == "Outlook" && e.Status == "Success")</BbCardTitle>
+                </BbCardHeader>
+            </BbCard>
+            <BbCard>
+                <BbCardHeader>
+                    <BbCardDescription>Gmail</BbCardDescription>
+                    <BbCardTitle Class="text-2xl">@entries.Count(e => e.Provider == "Gmail" && e.Status == "Success")</BbCardTitle>
+                </BbCardHeader>
+            </BbCard>
+            <BbCard>
+                <BbCardHeader>
+                    <BbCardDescription>Yahoo</BbCardDescription>
+                    <BbCardTitle Class="text-2xl">@entries.Count(e => e.Provider == "Yahoo" && e.Status == "Success")</BbCardTitle>
+                </BbCardHeader>
+            </BbCard>
+        </div>
+
         <BbCard>
             <BbCardHeader>
-                <BbCardDescription>Total Created</BbCardDescription>
-                <BbCardTitle Class="text-2xl">@History.Entries.Count(e => e.Status == "Success")</BbCardTitle>
+                <BbCardTitle>Service Status</BbCardTitle>
+                <BbCardDescription>API key configuration status.</BbCardDescription>
             </BbCardHeader>
+            <BbCardContent>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="flex items-center gap-2 text-sm">
+                        <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(settings.CapsolverKey) ? "bg-destructive" : "bg-green-500")"></span>
+                        Capsolver — @(string.IsNullOrEmpty(settings.CapsolverKey) ? "No API Key" : "Connected")
+                    </div>
+                    <div class="flex items-center gap-2 text-sm">
+                        <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(settings.NopechaKey) ? "bg-destructive" : "bg-green-500")"></span>
+                        Nopecha — @(string.IsNullOrEmpty(settings.NopechaKey) ? "No API Key" : "Connected")
+                    </div>
+                    <div class="flex items-center gap-2 text-sm">
+                        <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(settings.SmsPoolToken) ? "bg-destructive" : "bg-green-500")"></span>
+                        SmsPool — @(string.IsNullOrEmpty(settings.SmsPoolToken) ? "No API Key" : "Connected")
+                    </div>
+                    <div class="flex items-center gap-2 text-sm">
+                        <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(settings.FiveSimToken) ? "bg-destructive" : "bg-green-500")"></span>
+                        5Sim — @(string.IsNullOrEmpty(settings.FiveSimToken) ? "No API Key" : "Connected")
+                    </div>
+                    <div class="flex items-center gap-2 text-sm">
+                        <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(settings.GetsmsCodeToken) ? "bg-destructive" : "bg-green-500")"></span>
+                        GetsmsCode — @(string.IsNullOrEmpty(settings.GetsmsCodeToken) ? "No API Key" : "Connected")
+                    </div>
+                </div>
+            </BbCardContent>
         </BbCard>
+
         <BbCard>
             <BbCardHeader>
-                <BbCardDescription>Outlook</BbCardDescription>
-                <BbCardTitle Class="text-2xl">@History.Entries.Count(e => e.Provider == "Outlook" && e.Status == "Success")</BbCardTitle>
+                <BbCardTitle>Recent Activity</BbCardTitle>
             </BbCardHeader>
-        </BbCard>
-        <BbCard>
-            <BbCardHeader>
-                <BbCardDescription>Gmail</BbCardDescription>
-                <BbCardTitle Class="text-2xl">@History.Entries.Count(e => e.Provider == "Gmail" && e.Status == "Success")</BbCardTitle>
-            </BbCardHeader>
-        </BbCard>
-        <BbCard>
-            <BbCardHeader>
-                <BbCardDescription>Yahoo</BbCardDescription>
-                <BbCardTitle Class="text-2xl">@History.Entries.Count(e => e.Provider == "Yahoo" && e.Status == "Success")</BbCardTitle>
-            </BbCardHeader>
+            <BbCardContent>
+                @if (!entries.Any())
+                {
+                    <p class="text-sm text-muted-foreground text-center py-8">
+                        No accounts created yet. Go to <a href="create" class="text-primary hover:underline">Create Account</a> to get started.
+                    </p>
+                }
+                else
+                {
+                    <div class="space-y-2">
+                        @foreach (var entry in entries.Take(5))
+                        {
+                            <div class="flex items-center justify-between text-sm py-2 border-b border-border last:border-0">
+                                <div>
+                                    <span class="font-medium">@entry.Email</span>
+                                    <span class="text-muted-foreground ml-2">@entry.Provider</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-muted-foreground">@entry.CreatedAt.ToString("HH:mm:ss")</span>
+                                    <span class="@(entry.Status == "Success" ? "text-green-600" : "text-destructive")">@entry.Status</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </BbCardContent>
         </BbCard>
     </div>
+}
 
-    <BbCard>
-        <BbCardHeader>
-            <BbCardTitle>Service Status</BbCardTitle>
-            <BbCardDescription>API key configuration status.</BbCardDescription>
-        </BbCardHeader>
-        <BbCardContent>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div class="flex items-center gap-2 text-sm">
-                    <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(SettingsService.Settings.CapsolverKey) ? "bg-destructive" : "bg-green-500")"></span>
-                    Capsolver — @(string.IsNullOrEmpty(SettingsService.Settings.CapsolverKey) ? "No API Key" : "Connected")
-                </div>
-                <div class="flex items-center gap-2 text-sm">
-                    <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(SettingsService.Settings.NopechaKey) ? "bg-destructive" : "bg-green-500")"></span>
-                    Nopecha — @(string.IsNullOrEmpty(SettingsService.Settings.NopechaKey) ? "No API Key" : "Connected")
-                </div>
-                <div class="flex items-center gap-2 text-sm">
-                    <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(SettingsService.Settings.SmsPoolToken) ? "bg-destructive" : "bg-green-500")"></span>
-                    SmsPool — @(string.IsNullOrEmpty(SettingsService.Settings.SmsPoolToken) ? "No API Key" : "Connected")
-                </div>
-                <div class="flex items-center gap-2 text-sm">
-                    <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(SettingsService.Settings.FiveSimToken) ? "bg-destructive" : "bg-green-500")"></span>
-                    5Sim — @(string.IsNullOrEmpty(SettingsService.Settings.FiveSimToken) ? "No API Key" : "Connected")
-                </div>
-                <div class="flex items-center gap-2 text-sm">
-                    <span class="w-2 h-2 rounded-full @(string.IsNullOrEmpty(SettingsService.Settings.GetsmsCodeToken) ? "bg-destructive" : "bg-green-500")"></span>
-                    GetsmsCode — @(string.IsNullOrEmpty(SettingsService.Settings.GetsmsCodeToken) ? "No API Key" : "Connected")
-                </div>
-            </div>
-        </BbCardContent>
-    </BbCard>
+@code {
+    private bool isLoading = true;
+    private IReadOnlyList<AccountHistoryEntry> entries = [];
+    private AppSettings settings = new();
 
-    <BbCard>
-        <BbCardHeader>
-            <BbCardTitle>Recent Activity</BbCardTitle>
-        </BbCardHeader>
-        <BbCardContent>
-            @if (!History.Entries.Any())
-            {
-                <p class="text-sm text-muted-foreground text-center py-8">
-                    No accounts created yet. Go to <a href="create" class="text-primary hover:underline">Create Account</a> to get started.
-                </p>
-            }
-            else
-            {
-                <div class="space-y-2">
-                    @foreach (var entry in History.Entries.Take(5))
-                    {
-                        <div class="flex items-center justify-between text-sm py-2 border-b border-border last:border-0">
-                            <div>
-                                <span class="font-medium">@entry.Email</span>
-                                <span class="text-muted-foreground ml-2">@entry.Provider</span>
-                            </div>
-                            <div class="flex items-center gap-3">
-                                <span class="text-muted-foreground">@entry.CreatedAt.ToString("HH:mm:ss")</span>
-                                <span class="@(entry.Status == "Success" ? "text-green-600" : "text-destructive")">@entry.Status</span>
-                            </div>
-                        </div>
-                    }
-                </div>
-            }
-        </BbCardContent>
-    </BbCard>
-</div>
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            settings = await SettingsService.GetSettingsAsync();
+            entries = await HistoryService.GetHistoryAsync();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

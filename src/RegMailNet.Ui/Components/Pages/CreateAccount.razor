@@ -1,8 +1,7 @@
 @page "/create"
-@inject RegMailNetManager Manager
-@inject Services.AccountHistoryService History
-@inject Services.SettingsService SettingsService
-@using RegMailNet.EmailProviders
+@inject Services.IAccountCreationService AccountService
+@inject Services.IAccountHistoryService HistoryService
+@using RegMailNet.Ui.Models
 
 <div class="max-w-2xl space-y-6">
     <div>
@@ -100,26 +99,54 @@
         errorMessage = null;
         successEmail = null;
         successPassword = null;
-        StateHasChanged();
 
         try
         {
-            AccountCreationResult result = selectedProvider switch
+            var result = selectedProvider switch
             {
-                "outlook" => await Manager.CreateOutlookAccountAsync(useProxy: useProxy),
-                "gmail" => await Manager.CreateGmailAccountAsync(useProxy: useProxy),
-                "yahoo" => await Manager.CreateYahooAccountAsync(useProxy: useProxy),
+                "outlook" => await AccountService.CreateOutlookAsync(useProxy: useProxy),
+                "gmail" => await AccountService.CreateGmailAsync(useProxy: useProxy),
+                "yahoo" => await AccountService.CreateYahooAsync(useProxy: useProxy),
                 _ => throw new ArgumentException("Unknown provider")
             };
 
-            successEmail = result.Email;
-            successPassword = result.Password;
-            History.Add(result, selectedProvider!.Substring(0, 1).ToUpper() + selectedProvider.Substring(1));
+            if (result.Success)
+            {
+                successEmail = result.Email;
+                successPassword = result.Password;
+                await HistoryService.AddAsync(new AccountHistoryEntry
+                {
+                    Email = result.Email,
+                    Password = result.Password,
+                    Provider = selectedProvider!.Substring(0, 1).ToUpper() + selectedProvider.Substring(1),
+                    CreatedAt = DateTime.Now,
+                    Status = "Success"
+                });
+            }
+            else
+            {
+                errorMessage = "Account creation failed. Check API logs for details.";
+                await HistoryService.AddAsync(new AccountHistoryEntry
+                {
+                    Email = "-",
+                    Password = "-",
+                    Provider = selectedProvider!,
+                    CreatedAt = DateTime.Now,
+                    Status = "Failed"
+                });
+            }
         }
         catch (Exception ex)
         {
             errorMessage = ex.Message;
-            History.AddFailure(selectedProvider!, ex.Message);
+            await HistoryService.AddAsync(new AccountHistoryEntry
+            {
+                Email = "-",
+                Password = "-",
+                Provider = selectedProvider!,
+                CreatedAt = DateTime.Now,
+                Status = $"Failed: {ex.Message}"
+            });
         }
         finally
         {
