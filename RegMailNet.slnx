@@ -1,7 +1,10 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/RegMailNet.Ui/RegMailNet.Ui.csproj">
+      <Build Solution="Debug|*" Project="false" />
+      <Deploy Solution="Debug|*" />
+    </Project>
     <Project Path="src/RegMailNet/RegMailNet.csproj" />
-    <Project Path="src/RegMailNet.Ui/RegMailNet.Ui.csproj" />
     <Project Path="src/RegMailNet.Api/RegMailNet.Api.csproj" />
   </Folder>
   <Folder Name="/tests/">

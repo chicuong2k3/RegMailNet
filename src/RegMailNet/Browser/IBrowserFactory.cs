@@ -8,6 +8,12 @@ namespace RegMailNet.Browser;
 public interface IBrowserFactory
 {
     /// <summary>
+    /// Ensures the underlying browser runtime is installed and ready.
+    /// Safe to call multiple times. No-op if already installed.
+    /// </summary>
+    Task EnsureInstalledAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    /// <summary>
     /// Launches a new Camoufox browser context and returns a fresh page.
     /// </summary>
     /// <param name="headless">Run in headless mode (default: true).</param>

@@ -1,156 +1,365 @@
 @page "/create"
-@inject Services.IAccountCreationService AccountService
-@inject Services.IAccountHistoryService HistoryService
-@using RegMailNet.Ui.Models
+@inject RegMailNetManager Manager
+@inject Services.AccountHistoryService History
+@inject Services.SettingsService SettingsService
+@using RegMailNet.EmailProviders
+@implements IDisposable
 
-<div class="max-w-2xl space-y-6">
+<div class="max-w-2xl space-y-4">
     <div>
-        <h1 class="text-3xl font-bold tracking-tight text-foreground">Create Account</h1>
-        <p class="text-muted-foreground mt-1">Select a provider and create an account instantly.</p>
+        <h1 class="text-xl font-bold tracking-tight text-foreground">Create Accounts</h1>
+        <p class="text-muted-foreground text-sm mt-0.5">Select a provider, set quantity, and create accounts automatically.</p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <BbCard Class="@($"cursor-pointer transition-all {(selectedProvider == "outlook" ? "ring-2 ring-primary" : "")}")"
-                @onclick="@(() => selectedProvider = "outlook")">
-            <BbCardContent class="text-center py-6">
-                <div class="text-3xl mb-2">Outlook</div>
-                <div class="text-sm text-muted-foreground">@@outlook.com</div>
-                <div class="text-xs text-green-600 mt-2">Captcha solver required</div>
-            </BbCardContent>
-        </BbCard>
-
-        <BbCard Class="@($"cursor-pointer transition-all {(selectedProvider == "gmail" ? "ring-2 ring-primary" : "")}")"
-                @onclick="@(() => selectedProvider = "gmail")">
-            <BbCardContent class="text-center py-6">
-                <div class="text-3xl mb-2">Gmail</div>
-                <div class="text-sm text-muted-foreground">@@gmail.com</div>
-                <div class="text-xs text-amber-600 mt-2">SMS verification required</div>
-            </BbCardContent>
-        </BbCard>
-
-        <BbCard Class="@($"cursor-pointer transition-all {(selectedProvider == "yahoo" ? "ring-2 ring-primary" : "")}")"
-                @onclick="@(() => selectedProvider = "yahoo")">
-            <BbCardContent class="text-center py-6">
-                <div class="text-3xl mb-2">Yahoo</div>
-                <div class="text-sm text-muted-foreground">@@yahoo.com</div>
-                <div class="text-xs text-amber-600 mt-2">Captcha + SMS required</div>
-            </BbCardContent>
-        </BbCard>
-    </div>
-
-    <BbCard>
-        <BbCardHeader>
-            <BbCardTitle>Options</BbCardTitle>
-        </BbCardHeader>
-        <BbCardContent>
-            <div class="flex items-center">
-                <label class="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="checkbox" @bind="useProxy" class="rounded" />
-                    Use proxy
-                </label>
+    <!-- Provider Selection -->
+    <BbCard Class="p-4 space-y-2 !rounded-xl !shadow-none">
+        <BbLabel For="provider" Class="text-xs font-medium text-foreground">Provider</BbLabel>
+        <BbNativeSelect TValue="string" @bind-Value="selectedProvider"
+                       Disabled="@isCreating"
+                       Id="provider"
+                       Class="text-sm">
+            <option value="outlook">Outlook — @("@outlook.com")</option>
+            <option value="gmail">Gmail — @("@gmail.com")</option>
+            <option value="yahoo">Yahoo — @("@yahoo.com")</option>
+        </BbNativeSelect>
+        <div class="flex items-center gap-2">
+            <p class="text-[11px] @ProviderHintColor">@ProviderHintText</p>
+            @if (selectedProvider == "outlook")
+            {
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700">Easiest</span>
+            }
+            else if (selectedProvider == "gmail")
+            {
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">SMS Required</span>
+            }
+            else if (selectedProvider == "yahoo")
+            {
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700">Hardest</span>
+            }
+        </div>
+        <!-- Provider Stats -->
+        <div class="flex items-center gap-3 text-[10px] text-muted-foreground">
+            <span>Outlook: @outlookSuccessRate% (@outlookTotal)</span>
+            <span>Gmail: @gmailSuccessRate% (@gmailTotal)</span>
+            <span>Yahoo: @yahooSuccessRate% (@yahooTotal)</span>
+        </div>
+        <!-- Provider Success Rate Bars -->
+        <div class="space-y-1 mt-1">
+            @foreach (var provider in providerSuccessRates)
+            {
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] w-12">@provider.Name</span>
+                    <div class="flex-1 bg-muted rounded-full h-1">
+                        <div class="h-1 rounded-full transition-all @(provider.Rate >= 80 ? "bg-green-500" : provider.Rate >= 50 ? "bg-amber-500" : "bg-destructive")"
+                             style="width: @provider.Rate%"></div>
+                    </div>
+                    <span class="text-[10px] w-8 text-right">@provider.Rate%</span>
+                </div>
+            }
+        </div>
+        <!-- Last Created -->
+        @if (lastCreatedEmail != null)
+        {
+            <div class="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+                <span>Last created:</span>
+                <span class="font-medium text-foreground">@lastCreatedEmail</span>
+                <span>@lastCreatedTime</span>
             </div>
-        </BbCardContent>
+        }
     </BbCard>
 
-    @if (!string.IsNullOrEmpty(errorMessage))
+    <!-- Options -->
+    <BbCard Class="p-4 space-y-2 !rounded-xl !shadow-none">
+        <div class="font-semibold text-sm text-foreground">Options</div>
+        <div class="grid grid-cols-2 gap-2">
+            <div>
+                <BbLabel Class="text-[11px] text-muted-foreground mb-0.5 block">Quantity</BbLabel>
+                <BbNumericInput TValue="int" @bind-Value="quantity"
+                               Min="1" Max="50"
+                               Disabled="@isCreating"
+                               Class="w-full text-xs" />
+            </div>
+            <div>
+                <BbLabel Class="text-[11px] text-muted-foreground mb-0.5 block">Batch Label (optional)</BbLabel>
+                <BbInput @bind-Value="batchLabel"
+                        Placeholder="e.g. Batch #1"
+                        Disabled="@isCreating"
+                        Class="text-xs" />
+            </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <label class="flex items-center gap-1.5 text-[11px] cursor-pointer">
+                <BbCheckbox @bind-Checked="useProxy"
+                           Disabled="@isCreating"
+                           Id="useProxy" />
+                Use proxy
+            </label>
+            <label class="flex items-center gap-1.5 text-[11px] cursor-pointer">
+                <BbCheckbox @bind-Checked="headless"
+                           Disabled="@isCreating"
+                           Id="headless" />
+                Headless
+            </label>
+        </div>
+    </BbCard>
+
+    @if (isCreating)
+    {
+        <!-- Progress -->
+        <BbCard Class="p-4 space-y-2 !rounded-xl !shadow-none">
+            <div class="flex items-center justify-between text-xs">
+                <span class="font-medium">Creating accounts...</span>
+                <span class="text-muted-foreground">@createdCount / @quantity succeeded · @failedCount failed</span>
+            </div>
+            <BbProgress Value="@((double)(createdCount + failedCount) / quantity * 100)"
+                       Class="bg-muted h-1.5 rounded-full"
+                       IndicatorClass="bg-primary h-1.5 rounded-full transition-all" />
+            @if (!string.IsNullOrEmpty(currentEmail))
+            {
+                <div class="text-[11px] text-muted-foreground">Current: @currentEmail</div>
+            }
+            <div class="flex items-center gap-2">
+                <BbButton Variant="ButtonVariant.Outline"
+                         OnClick="CancelCreation"
+                         Size="ButtonSize.Small">
+                    Cancel
+                </BbButton>
+                <span class="text-[11px] text-muted-foreground">
+                    Elapsed: @elapsedTime
+                </span>
+            </div>
+        </BbCard>
+    }
+
+    @if (!isCreating && (createdCount > 0 || failedCount > 0))
+    {
+        <BbAlert Variant="@(failedCount == 0 ? AlertVariant.Success : AlertVariant.Warning)">
+            <BbAlertDescription>
+                Batch complete: <strong>@createdCount</strong> created, <strong>@failedCount</strong> failed.
+                @if (createdCount > 0)
+                {
+                    <a href="/history" class="text-primary hover:underline ml-1">View history →</a>
+                }
+            </BbAlertDescription>
+        </BbAlert>
+    }
+
+    <!-- Recent Batches -->
+    @if (recentBatches.Any())
+    {
+        <BbCard Class="p-3 !rounded-xl !shadow-none">
+            <div class="flex items-center justify-between mb-2">
+                <div class="font-semibold text-sm text-foreground">Recent Batches</div>
+                <BbButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small"
+                         OnClick="ClearRecentBatches"
+                         Class="text-[11px] text-muted-foreground">
+                    Clear
+                </BbButton>
+            </div>
+            <div class="space-y-1">
+                @foreach (var batch in recentBatches.Take(5))
+                {
+                    <div class="flex items-center justify-between text-[11px] py-0.5">
+                        <div class="flex items-center gap-2">
+                            <span class="font-medium">@batch.Provider</span>
+                            <span class="text-muted-foreground">×@batch.Quantity</span>
+                            @if (!string.IsNullOrEmpty(batch.Label))
+                            {
+                                <span class="text-muted-foreground">(@batch.Label)</span>
+                            }
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-green-600">@batch.Created</span>
+                            <span class="text-muted-foreground">@batch.Time.ToString("HH:mm")</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </BbCard>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage) && !isCreating)
     {
         <BbAlert Variant="AlertVariant.Danger">
             <BbAlertDescription>@errorMessage</BbAlertDescription>
         </BbAlert>
     }
 
-    @if (!string.IsNullOrEmpty(successEmail))
-    {
-        <BbAlert Variant="AlertVariant.Success">
-            <BbAlertDescription>
-                Account created: <strong>@successEmail</strong> / <strong>@successPassword</strong>
-            </BbAlertDescription>
-        </BbAlert>
-    }
-
-    <div class="flex justify-center">
-        <BbButton Size="ButtonSize.Large" Disabled="@(isCreating || string.IsNullOrEmpty(selectedProvider))"
-                  @onclick="CreateAccountAsync">
+    <!-- Create Button -->
+    <div class="flex flex-col items-center gap-1.5">
+        <BbButton OnClick="StartBatchCreation"
+                 Disabled="@(isCreating || string.IsNullOrEmpty(selectedProvider))"
+                 Class="px-5 py-2 rounded-lg text-sm font-medium"
+                 Loading="@isCreating">
             @if (isCreating)
             {
-                <span>Creating...</span>
+                <span>Creating @createdCount/@quantity...</span>
             }
             else
             {
-                <span>Create @(selectedProvider?.ToUpperInvariant() ?? "") Account</span>
+                <span>Create @quantity @(selectedProvider?.ToUpperInvariant() ?? "") Account@(quantity > 1 ? "s" : "")</span>
             }
         </BbButton>
+        @if (!isCreating && quantity > 1)
+        {
+            <span class="text-[10px] text-muted-foreground">
+                Estimated: ~@(quantity * 30)s (@(TimeSpan.FromSeconds(quantity * 30).ToString(@"mm\:ss")))
+            </span>
+        }
     </div>
 </div>
 
 @code {
-    private string? selectedProvider;
+    private string selectedProvider = "outlook";
+    private int quantity = 1;
+    private string batchLabel = "";
     private bool useProxy = true;
+    private bool headless = true;
+    private List<BatchRecord> recentBatches = new();
+
+    private record BatchRecord(string Provider, int Quantity, string Label, int Created, DateTime Time);
+
+    private double outlookSuccessRate => GetSuccessRate("Outlook");
+    private double gmailSuccessRate => GetSuccessRate("Gmail");
+    private double yahooSuccessRate => GetSuccessRate("Yahoo");
+    private int outlookTotal => History.Entries.Count(e => e.Provider == "Outlook");
+    private int gmailTotal => History.Entries.Count(e => e.Provider == "Gmail");
+    private int yahooTotal => History.Entries.Count(e => e.Provider == "Yahoo");
+
+    private List<ProviderSuccessRate> providerSuccessRates => new()
+    {
+        new("Outlook", outlookSuccessRate),
+        new("Gmail", gmailSuccessRate),
+        new("Yahoo", yahooSuccessRate)
+    };
+
+    private record ProviderSuccessRate(string Name, double Rate);
+
+    private string? lastCreatedEmail => History.Entries.FirstOrDefault()?.Email;
+    private string lastCreatedTime => History.Entries.FirstOrDefault()?.CreatedAt.ToString("HH:mm") ?? "";
+
+    private double GetSuccessRate(string provider)
+    {
+        var entries = History.Entries.Where(e => e.Provider == provider).ToList();
+        if (!entries.Any()) return 0;
+        return Math.Round((double)entries.Count(e => e.Status == "Success") / entries.Count * 100, 1);
+    }
     private bool isCreating;
     private string? errorMessage;
-    private string? successEmail;
-    private string? successPassword;
+    private int createdCount;
+    private int failedCount;
+    private string? currentEmail;
+    private string elapsedTime = "00:00";
+    private CancellationTokenSource? cts;
+    private System.Diagnostics.Stopwatch? stopwatch;
 
-    private async Task CreateAccountAsync()
+    private string ProviderHintText => selectedProvider switch
     {
-        if (string.IsNullOrEmpty(selectedProvider)) return;
+        "outlook" => "Captcha solver required",
+        "gmail" => "SMS verification required",
+        "yahoo" => "Captcha + SMS required",
+        _ => ""
+    };
+
+    private string ProviderHintColor => selectedProvider switch
+    {
+        "outlook" => "text-green-600",
+        "gmail" => "text-amber-600",
+        "yahoo" => "text-amber-600",
+        _ => "text-muted-foreground"
+    };
+
+    private async Task StartBatchCreation()
+    {
+        if (string.IsNullOrEmpty(selectedProvider) || quantity < 1) return;
 
         isCreating = true;
+        createdCount = 0;
+        failedCount = 0;
         errorMessage = null;
-        successEmail = null;
-        successPassword = null;
+        currentEmail = null;
+        elapsedTime = "00:00";
+        cts = new CancellationTokenSource();
+        stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
-        try
+        // Update elapsed time
+        var timer = new System.Threading.Timer(_ =>
         {
-            var result = selectedProvider switch
+            if (stopwatch != null)
             {
-                "outlook" => await AccountService.CreateOutlookAsync(useProxy: useProxy),
-                "gmail" => await AccountService.CreateGmailAsync(useProxy: useProxy),
-                "yahoo" => await AccountService.CreateYahooAsync(useProxy: useProxy),
-                _ => throw new ArgumentException("Unknown provider")
-            };
+                elapsedTime = stopwatch.Elapsed.ToString(@"mm\:ss");
+                InvokeAsync(StateHasChanged);
+            }
+        }, null, 0, 1000);
 
-            if (result.Success)
-            {
-                successEmail = result.Email;
-                successPassword = result.Password;
-                await HistoryService.AddAsync(new AccountHistoryEntry
-                {
-                    Email = result.Email,
-                    Password = result.Password,
-                    Provider = selectedProvider!.Substring(0, 1).ToUpper() + selectedProvider.Substring(1),
-                    CreatedAt = DateTime.Now,
-                    Status = "Success"
-                });
-            }
-            else
-            {
-                errorMessage = "Account creation failed. Check API logs for details.";
-                await HistoryService.AddAsync(new AccountHistoryEntry
-                {
-                    Email = "-",
-                    Password = "-",
-                    Provider = selectedProvider!,
-                    CreatedAt = DateTime.Now,
-                    Status = "Failed"
-                });
-            }
-        }
-        catch (Exception ex)
+        StateHasChanged();
+
+        var providerName = selectedProvider.Substring(0, 1).ToUpper() + selectedProvider.Substring(1);
+
+        for (int i = 0; i < quantity; i++)
         {
-            errorMessage = ex.Message;
-            await HistoryService.AddAsync(new AccountHistoryEntry
+            if (cts.Token.IsCancellationRequested)
+                break;
+
+            try
             {
-                Email = "-",
-                Password = "-",
-                Provider = selectedProvider!,
-                CreatedAt = DateTime.Now,
-                Status = $"Failed: {ex.Message}"
-            });
+                currentEmail = $"Creating #{i + 1}...";
+                StateHasChanged();
+
+                AccountCreationResult result = selectedProvider switch
+                {
+                    "outlook" => await Manager.CreateOutlookAccountAsync(useProxy: useProxy),
+                    "gmail" => await Manager.CreateGmailAccountAsync(useProxy: useProxy),
+                    "yahoo" => await Manager.CreateYahooAccountAsync(useProxy: useProxy),
+                    _ => throw new ArgumentException("Unknown provider")
+                };
+
+                currentEmail = result.Email;
+                createdCount++;
+                History.Add(result, providerName);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                failedCount++;
+                History.AddFailure(selectedProvider, ex.Message);
+            }
+
+            StateHasChanged();
         }
-        finally
+
+        timer.Dispose();
+        stopwatch.Stop();
+        isCreating = false;
+        currentEmail = null;
+        cts?.Dispose();
+        cts = null;
+
+        // Record batch
+        if (createdCount > 0 || failedCount > 0)
         {
-            isCreating = false;
+            recentBatches.Insert(0, new BatchRecord(
+                selectedProvider.Substring(0, 1).ToUpper() + selectedProvider.Substring(1),
+                quantity,
+                batchLabel,
+                createdCount,
+                DateTime.Now
+            ));
         }
+    }
+
+    private void CancelCreation()
+    {
+        cts?.Cancel();
+    }
+
+    private void ClearRecentBatches()
+    {
+        recentBatches.Clear();
+    }
+
+    public void Dispose()
+    {
+        cts?.Cancel();
+        cts?.Dispose();
     }
 }

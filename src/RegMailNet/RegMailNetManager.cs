@@ -20,6 +20,8 @@ public class RegMailNetManager
     private readonly RegMailNetOptions _options;
     private readonly ILogger<RegMailNetManager> _logger;
 
+    private readonly Func<Dictionary<string, string>>? _captchaKeysProvider;
+    private readonly Func<Dictionary<string, Dictionary<string, string>>>? _smsKeysProvider;
     private readonly Dictionary<string, string> _captchaKeys;
     private readonly Dictionary<string, Dictionary<string, string>> _smsKeys;
     private readonly List<string>? _proxies;
@@ -40,11 +42,15 @@ public class RegMailNetManager
         YahooProvider? yahooProvider = null,
         DataGenerator? dataGenerator = null,
         IOptions<RegMailNetOptions>? options = null,
-        ILogger<RegMailNetManager>? logger = null)
+        ILogger<RegMailNetManager>? logger = null,
+        Func<Dictionary<string, string>>? captchaKeysProvider = null,
+        Func<Dictionary<string, Dictionary<string, string>>>? smsKeysProvider = null)
     {
         _options = options?.Value ?? new RegMailNetOptions();
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<RegMailNetManager>.Instance;
 
+        _captchaKeysProvider = captchaKeysProvider;
+        _smsKeysProvider = smsKeysProvider;
         _captchaKeys = captchaKeys ?? new();
         _smsKeys = smsKeys ?? new();
         _proxies = proxies;
@@ -162,6 +168,8 @@ public class RegMailNetManager
 
     private CaptchaKeyInfo GetCaptchaKey(string emailProvider)
     {
+        var captchaKeys = _captchaKeysProvider?.Invoke() ?? _captchaKeys;
+
         var mapping = _options.SupportedSolversByEmail
             .FirstOrDefault(m => m.EmailService.Equals(emailProvider, StringComparison.OrdinalIgnoreCase));
 
@@ -169,7 +177,7 @@ public class RegMailNetManager
         {
             foreach (var solver in mapping.Solvers)
             {
-                if (_captchaKeys.TryGetValue(solver, out var key))
+                if (captchaKeys.TryGetValue(solver, out var key))
                     return new CaptchaKeyInfo(solver, key);
             }
         }
@@ -181,14 +189,16 @@ public class RegMailNetManager
 
     private Dictionary<string, string> GetSmsKey()
     {
-        if (_smsKeys.Count == 0)
+        var smsKeys = _smsKeysProvider?.Invoke() ?? _smsKeys;
+
+        if (smsKeys.Count == 0)
             throw new ArgumentException("No SMS API keys provided for SMS verification.");
 
-        if (_smsKeys.TryGetValue(_options.DefaultSmsService, out var defaultData))
+        if (smsKeys.TryGetValue(_options.DefaultSmsService, out var defaultData))
             return new Dictionary<string, string> { ["name"] = _options.DefaultSmsService, ["data"] = SerializeData(defaultData) };
 
-        var randomKey = _smsKeys.Keys.ElementAt(Random.Shared.Next(_smsKeys.Count));
-        return new Dictionary<string, string> { ["name"] = randomKey, ["data"] = SerializeData(_smsKeys[randomKey]) };
+        var randomKey = smsKeys.Keys.ElementAt(Random.Shared.Next(smsKeys.Count));
+        return new Dictionary<string, string> { ["name"] = randomKey, ["data"] = SerializeData(smsKeys[randomKey]) };
     }
 
     private static string SerializeData(Dictionary<string, string> data)

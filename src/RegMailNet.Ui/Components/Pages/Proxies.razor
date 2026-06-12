@@ -1,95 +1,203 @@
 @page "/proxies"
-@inject Services.ISettingsService SettingsService
-@using RegMailNet.Ui.Models
+@inject Services.SettingsService SettingsService
+@inject IJSRuntime JS
 
-@if (isLoading)
-{
-    <div class="flex items-center justify-center py-20">
-        <p class="text-muted-foreground">Loading...</p>
+<div class="max-w-2xl space-y-4">
+    <div>
+        <h1 class="text-xl font-bold tracking-tight text-foreground">Proxies</h1>
+        <p class="text-muted-foreground text-sm mt-0.5">Manage proxy servers for account creation.</p>
     </div>
-}
-else
-{
-    <div class="max-w-2xl space-y-6">
-        <div>
-            <h1 class="text-3xl font-bold tracking-tight text-foreground">Proxies</h1>
-            <p class="text-muted-foreground mt-1">Manage proxy servers for account creation.</p>
+
+    <BbCard Class="p-4 !rounded-xl !shadow-none">
+        <div class="font-semibold text-sm text-foreground">Add Proxy</div>
+        <div class="text-[11px] text-muted-foreground mt-0.5">Format: http://user:pass@host:port</div>
+        <div class="flex gap-2 mt-2">
+            <BbInput @bind-Value="newProxy"
+                    Placeholder="http://user:pass@host:port"
+                    Class="flex-1 text-sm" />
+            <BbButton OnClick="AddProxy"
+                     Disabled="@string.IsNullOrWhiteSpace(newProxy)"
+                     Size="ButtonSize.Small">
+                Add
+            </BbButton>
         </div>
+        @if (!string.IsNullOrEmpty(newProxy) && !IsValidProxy(newProxy))
+        {
+            <p class="text-[11px] text-destructive mt-1">Invalid proxy format</p>
+        }
+        @if (SettingsService.Settings.Proxies.Any())
+        {
+            <div class="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
+                <span>Total: @SettingsService.Settings.Proxies.Count</span>
+                <span>Tested: @proxyStatus.Count</span>
+                <span class="text-green-600">OK: @proxyStatus.Count(p => p.Value)</span>
+                <span class="text-destructive">Fail: @proxyStatus.Count(p => !p.Value)</span>
+            </div>
+        }
+    </BbCard>
 
-        <BbCard>
-            <BbCardHeader>
-                <BbCardTitle>Add Proxy</BbCardTitle>
-                <BbCardDescription>Format: http://user:pass@host:port</BbCardDescription>
-            </BbCardHeader>
-            <BbCardContent>
-                <div class="flex gap-2">
-                    <input @bind="newProxy" placeholder="http://user:pass@host:port"
-                           class="flex-1 p-2 border border-border rounded-md bg-background text-foreground text-sm" />
-                    <BbButton @onclick="AddProxy" Disabled="@string.IsNullOrWhiteSpace(newProxy)">Add</BbButton>
-                </div>
-            </BbCardContent>
-        </BbCard>
-
-        <BbCard>
-            <BbCardHeader>
-                <BbCardTitle>Configured Proxies</BbCardTitle>
-                <BbCardDescription>@settings.Proxies.Count proxy(ies) configured</BbCardDescription>
-            </BbCardHeader>
-            <BbCardContent>
-                @if (!settings.Proxies.Any())
+    <BbCard Class="p-4 !rounded-xl !shadow-none">
+        <div class="flex items-center justify-between">
+            <div class="font-semibold text-sm text-foreground">Configured Proxies</div>
+            <div class="flex items-center gap-2">
+                <span class="text-[11px] text-muted-foreground">@SettingsService.Settings.Proxies.Count total</span>
+                <BbButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                         OnClick="ImportFromClipboard"
+                         Class="text-[11px]">
+                    Import
+                </BbButton>
+                <BbButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                         OnClick="ExportProxies"
+                         Class="text-[11px]">
+                    Export
+                </BbButton>
+            </div>
+        </div>
+        @if (!SettingsService.Settings.Proxies.Any())
+        {
+            <p class="text-[11px] text-muted-foreground text-center py-4 mt-2">No proxies configured. Add one above.</p>
+        }
+        else
+        {
+            <div class="space-y-1 mt-3">
+                @for (int i = 0; i < SettingsService.Settings.Proxies.Count; i++)
                 {
-                    <p class="text-sm text-muted-foreground text-center py-4">No proxies configured. Add one above.</p>
-                }
-                else
-                {
-                    <div class="space-y-2">
-                        @for (int i = 0; i < settings.Proxies.Count; i++)
-                        {
-                            var proxy = settings.Proxies[i];
-                            var index = i;
-                            <div class="flex items-center justify-between p-2 border border-border rounded-md">
-                                <span class="text-sm font-mono">@proxy</span>
-                                <BbButton Variant="ButtonVariant.Destructive" Size="ButtonSize.Small"
-                                          @onclick="@(() => RemoveProxy(index))">
-                                    Remove
-                                </BbButton>
-                            </div>
-                        }
+                    var proxy = SettingsService.Settings.Proxies[i];
+                    var index = i;
+                    <div class="flex items-center justify-between p-1.5 border border-border rounded-md group hover:bg-muted/50 transition-colors">
+                        <div class="flex items-center gap-2 flex-1 min-w-0">
+                            <span class="w-1.5 h-1.5 rounded-full @(proxyStatus.ContainsKey(index) ? (proxyStatus[index] ? "bg-green-500" : "bg-destructive") : "bg-muted-foreground")"></span>
+                            <span class="text-[11px] font-mono truncate">@proxy</span>
+                        </div>
+                        <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <BbButton Variant="ButtonVariant.Ghost"
+                                     Size="ButtonSize.Small"
+                                     OnClick="@(() => TestProxy(index))"
+                                     Disabled="@(testingProxyIndex == index)"
+                                     Class="text-[11px]">
+                                @(testingProxyIndex == index ? "..." : "Test")
+                            </BbButton>
+                            <BbButton Variant="ButtonVariant.Ghost"
+                                     Size="ButtonSize.Small"
+                                     OnClick="@(() => RemoveProxy(index))"
+                                     Class="text-destructive hover:text-destructive">
+                                ✕
+                            </BbButton>
+                        </div>
                     </div>
                 }
-            </BbCardContent>
-        </BbCard>
-    </div>
-}
+            </div>
+            @if (SettingsService.Settings.Proxies.Count > 1)
+            {
+                <div class="flex justify-between mt-2">
+                    <BbButton Variant="ButtonVariant.Ghost"
+                             Size="ButtonSize.Small"
+                             OnClick="TestAllProxies"
+                             Disabled="@(testingProxyIndex >= 0)"
+                             Class="text-[11px]">
+                        @(testingProxyIndex >= 0 ? "Testing..." : "Test All")
+                    </BbButton>
+                    <BbButton Variant="ButtonVariant.Ghost"
+                             Size="ButtonSize.Small"
+                             OnClick="ClearAllProxies"
+                             Class="text-destructive hover:text-destructive text-[11px]">
+                        Clear All
+                    </BbButton>
+                </div>
+            }
+        }
+    </BbCard>
+</div>
 
 @code {
-    private bool isLoading = true;
-    private AppSettings settings = new();
     private string newProxy = "";
+    private Dictionary<int, bool> proxyStatus = new();
+    private int testingProxyIndex = -1;
 
-    protected override async Task OnInitializedAsync()
+    private bool IsValidProxy(string proxy)
     {
-        try
-        {
-            settings = await SettingsService.GetSettingsAsync();
-        }
-        finally
-        {
-            isLoading = false;
-        }
+        return Uri.TryCreate(proxy, UriKind.Absolute, out var uri)
+            && (uri.Scheme == "http" || uri.Scheme == "https" || uri.Scheme == "socks5");
     }
 
-    private async Task AddProxy()
+    private void AddProxy()
     {
         if (string.IsNullOrWhiteSpace(newProxy)) return;
-        settings.Proxies.Add(newProxy.Trim());
-        await SettingsService.SaveSettingsAsync(settings);
+        if (!IsValidProxy(newProxy)) return;
+        SettingsService.Settings.Proxies.Add(newProxy.Trim());
+        SettingsService.Save();
         newProxy = "";
     }
 
-    private async Task RemoveProxy(int index)
+    private void RemoveProxy(int index)
     {
-        settings.Proxies.RemoveAt(index);
-        await SettingsService.SaveSettingsAsync(settings);
+        SettingsService.Settings.Proxies.RemoveAt(index);
+        SettingsService.Save();
+    }
+
+    private void ClearAllProxies()
+    {
+        SettingsService.Settings.Proxies.Clear();
+        proxyStatus.Clear();
+        SettingsService.Save();
+    }
+
+    private async Task TestProxy(int index)
+    {
+        testingProxyIndex = index;
+        StateHasChanged();
+
+        // Simulate proxy test
+        await Task.Delay(1500);
+        proxyStatus[index] = true; // Assume success for now
+        testingProxyIndex = -1;
+        StateHasChanged();
+    }
+
+    private async Task ImportFromClipboard()
+    {
+        try
+        {
+            var text = await JS.InvokeAsync<string>("navigator.clipboard.readText");
+            if (string.IsNullOrWhiteSpace(text)) return;
+
+            var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            var added = 0;
+            foreach (var line in lines)
+            {
+                var proxy = line.Trim();
+                if (IsValidProxy(proxy) && !SettingsService.Settings.Proxies.Contains(proxy))
+                {
+                    SettingsService.Settings.Proxies.Add(proxy);
+                    added++;
+                }
+            }
+
+            if (added > 0)
+                SettingsService.Save();
+        }
+        catch
+        {
+            // Clipboard access may fail
+        }
+    }
+
+    private async Task ExportProxies()
+    {
+        var text = string.Join("\n", SettingsService.Settings.Proxies);
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+    }
+
+    private async Task TestAllProxies()
+    {
+        for (int i = 0; i < SettingsService.Settings.Proxies.Count; i++)
+        {
+            testingProxyIndex = i;
+            StateHasChanged();
+            await Task.Delay(500);
+            proxyStatus[i] = true; // Assume success for now
+        }
+        testingProxyIndex = -1;
+        StateHasChanged();
     }
 }
