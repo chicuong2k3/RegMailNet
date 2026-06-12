@@ -9,9 +9,13 @@ namespace RegMailNet.Configuration;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddRegMailNet(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddRegMailNet(this IServiceCollection services, IConfiguration configuration, Action<RegMailNetOptions>? configureDefaults = null)
     {
-        services.Configure<RegMailNetOptions>(configuration.GetSection(RegMailNetOptions.SectionName));
+        services.Configure<RegMailNetOptions>(options =>
+        {
+            configuration.GetSection(RegMailNetOptions.SectionName).Bind(options);
+            configureDefaults?.Invoke(options);
+        });
 
         services.AddSingleton<DataGenerator>();
         services.AddSingleton<IBrowserFactory, CamoufoxBrowserFactory>();

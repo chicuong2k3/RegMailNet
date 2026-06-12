@@ -15,9 +15,13 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<Routes>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-builder.Services.AddScoped(sp => new HttpClient
+var apiBaseUrl = builder.Configuration["ApiBaseUrl"];
+builder.Services.AddScoped(sp =>
 {
-    BaseAddress = new Uri("http://localhost:5002")
+    var client = new HttpClient();
+    if (!string.IsNullOrEmpty(apiBaseUrl))
+        client.BaseAddress = new Uri(apiBaseUrl);
+    return client;
 });
 
 builder.Services.AddBlazorBlueprintComponents();
