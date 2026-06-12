@@ -20,39 +20,52 @@ A .NET library for automated email account creation on Gmail, Outlook, and Yahoo
 ```
 RegMailNet/
 ├── src/
-│   └── RegMailNet/                          # Main library
-│       ├── Browser/                         # Camoufox browser lifecycle
-│       │   ├── IBrowserFactory.cs
-│       │   ├── CamoufoxBrowserFactory.cs
-│       │   └── CaptchaKeyInfo.cs
-│       ├── Configuration/                   # Options model + DI extensions
-│       │   ├── RegMailNetOptions.cs
-│       │   └── ServiceCollectionExtensions.cs
-│       ├── EmailProviders/                  # Per-provider account creation logic
-│       │   ├── IEmailProvider.cs
-│       │   ├── AccountCreationResult.cs
-│       │   ├── AccountCreationException.cs
-│       │   ├── GmailProvider.cs
-│       │   ├── OutlookProvider.cs
-│       │   └── YahooProvider.cs
-│       ├── SmsServices/                     # SMS verification API integrations
-│       │   ├── ISmsService.cs
-│       │   ├── ISmsServiceFactory.cs
-│       │   ├── SmsServiceFactory.cs
-│       │   ├── GetsmsCodeService.cs
-│       │   ├── SmsPoolService.cs
-│       │   └── FiveSimService.cs
-│       ├── CaptchaSolvers/                  # Captcha solver browser extensions
-│       │   ├── ICaptchaSolver.cs
-│       │   ├── CapsolverExtension.cs
-│       │   └── NopechaExtension.cs
-│       ├── Utilities/                       # Data generation + Playwright helpers
-│       │   ├── DataGenerator.cs
-│       │   ├── WebHelpers.cs
-│       │   ├── MonthsMapping.cs
-│       │   └── FreeProxyService.cs
-│       ├── RegMailNetManager.cs             # Main facade / entry point
-│       └── appsettings.json                 # Default configuration
+│   ├── RegMailNet/                          # Main library
+│   │   ├── Browser/                         # Camoufox browser lifecycle
+│   │   │   ├── IBrowserFactory.cs
+│   │   │   ├── CamoufoxBrowserFactory.cs
+│   │   │   └── CaptchaKeyInfo.cs
+│   │   ├── Configuration/                   # Options model + DI extensions
+│   │   │   ├── RegMailNetOptions.cs
+│   │   │   └── ServiceCollectionExtensions.cs
+│   │   ├── EmailProviders/                  # Per-provider account creation logic
+│   │   │   ├── IEmailProvider.cs
+│   │   │   ├── AccountCreationResult.cs
+│   │   │   ├── AccountCreationException.cs
+│   │   │   ├── GmailProvider.cs
+│   │   │   ├── OutlookProvider.cs
+│   │   │   └── YahooProvider.cs
+│   │   ├── SmsServices/                     # SMS verification API integrations
+│   │   │   ├── ISmsService.cs
+│   │   │   ├── ISmsServiceFactory.cs
+│   │   │   ├── SmsServiceFactory.cs
+│   │   │   ├── GetsmsCodeService.cs
+│   │   │   ├── SmsPoolService.cs
+│   │   │   └── FiveSimService.cs
+│   │   ├── CaptchaSolvers/                  # Captcha solver browser extensions
+│   │   │   ├── ICaptchaSolver.cs
+│   │   │   ├── CapsolverExtension.cs
+│   │   │   └── NopechaExtension.cs
+│   │   ├── Utilities/                       # Data generation + Playwright helpers
+│   │   │   ├── DataGenerator.cs
+│   │   │   ├── WebHelpers.cs
+│   │   │   ├── MonthsMapping.cs
+│   │   │   └── FreeProxyService.cs
+│   │   ├── RegMailNetManager.cs             # Main facade / entry point
+│   │   └── appsettings.json                 # Default configuration
+│   ├── RegMailNet.Api/                      # REST API (FastEndpoints)
+│   │   ├── Configuration/                   # ApiOptions (keys, proxies, headless)
+│   │   ├── Endpoints/                       # HTTP endpoints
+│   │   │   ├── CreateGmailAccount.cs
+│   │   │   ├── CreateOutlookAccount.cs
+│   │   │   ├── CreateYahooAccount.cs
+│   │   │   └── HealthCheck.cs
+│   │   ├── Requests/                        # Request DTOs
+│   │   ├── Responses/                       # Response DTOs
+│   │   ├── Program.cs                       # Host setup + DI
+│   │   └── appsettings.json
+│   └── RegMailNet.Ui/                       # MAUI Blazor desktop app
+│       └── (Blazor Hybrid UI for Windows/macOS/Android/iOS)
 ├── tests/
 │   └── RegMailNet.Tests/                    # xUnit tests
 │       ├── RegMailNetManagerTests.cs
@@ -162,6 +175,8 @@ This registers `DataGenerator`, `CamoufoxBrowserFactory`, all three email provid
 
 ## Usage
 
+### Library (C#)
+
 ```csharp
 using RegMailNet;
 using RegMailNet.Browser;
@@ -185,6 +200,79 @@ var outlook = await manager.CreateOutlookAccountAsync(country: "US");
 var yahoo = await manager.CreateYahooAccountAsync();
 ```
 
+### REST API
+
+The API project provides HTTP endpoints for testing and integration. It uses [FastEndpoints](https://fast-endpoints.com/) with auto-generated Swagger UI.
+
+**Run the API:**
+```bash
+dotnet run --project src/RegMailNet.Api
+```
+
+**Configure keys** in `src/RegMailNet.Api/appsettings.json`:
+```json
+{
+  "Api": {
+    "Headless": true,
+    "AutoProxy": false,
+    "CaptchaKeys": {
+      "capsolver": "your-api-key"
+    },
+    "SmsKeys": {
+      "smspool": { "token": "your-sms-token" }
+    },
+    "Proxies": []
+  }
+}
+```
+
+**Endpoints:**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/accounts/gmail` | Create a Gmail account |
+| `POST` | `/api/accounts/outlook` | Create an Outlook account |
+| `POST` | `/api/accounts/yahoo` | Create a Yahoo account |
+| `GET`  | `/api/health` | Health check |
+| `GET`  | `/swagger` | Swagger UI |
+
+**Example requests:**
+```bash
+# Health check
+curl http://localhost:5000/api/health
+
+# Create an Outlook account (all fields optional — random data is generated)
+curl -X POST http://localhost:5000/api/accounts/outlook \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# Create a Gmail account with custom details
+curl -X POST http://localhost:5000/api/accounts/gmail \
+  -H "Content-Type: application/json" \
+  -d '{"firstName": "John", "lastName": "Doe", "useProxy": false}'
+```
+
+**Request body** (all fields optional):
+```json
+{
+  "username": "string",
+  "password": "string",
+  "firstName": "string",
+  "lastName": "string",
+  "useProxy": true
+}
+```
+
+**Response:**
+```json
+{
+  "email": "generated@gmail.com",
+  "password": "generated-password",
+  "provider": "gmail",
+  "createdAt": "2026-06-12T12:00:00Z"
+}
+```
+
 ## Supported Services
 
 | Category | Options |
@@ -196,14 +284,16 @@ var yahoo = await manager.CreateYahooAccountAsync();
 
 ## Key Dependencies
 
-| Package | Purpose |
-|---|---|
-| `CamoufoxNet` 0.1.0 | Anti-detect browser (C++ fingerprint spoofing, Playwright compatible) |
-| `Microsoft.Playwright` 1.50.0+ | Browser automation API |
-| `Bogus` 35.6.5 | Fake user data generation |
-| `Microsoft.Extensions.DependencyInjection.Abstractions` | DI support |
-| `Microsoft.Extensions.Options` | Options pattern |
-| `Microsoft.Extensions.Http` | `IHttpClientFactory` for SMS APIs |
+| Package | Project | Purpose |
+|---|---|---|
+| `CamoufoxNet` 0.1.0 | Core | Anti-detect browser (C++ fingerprint spoofing, Playwright compatible) |
+| `Microsoft.Playwright` 1.50.0+ | Core | Browser automation API |
+| `Bogus` 35.6.5 | Core | Fake user data generation |
+| `Microsoft.Extensions.DependencyInjection.Abstractions` | Core | DI support |
+| `Microsoft.Extensions.Options` | Core | Options pattern |
+| `Microsoft.Extensions.Http` | Core | `IHttpClientFactory` for SMS APIs |
+| `FastEndpoints` 5.x | API | REPR pattern HTTP endpoints |
+| `FastEndpoints.Swagger` 5.x | API | Auto-generated Swagger/OpenAPI UI |
 
 ## Anti-Detection
 
