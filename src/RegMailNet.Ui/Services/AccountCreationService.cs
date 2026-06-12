@@ -34,6 +34,8 @@ public sealed class AccountCreationService : IAccountCreationService
         }
 
         var result = await response.Content.ReadFromJsonAsync<AccountCreatedResult>();
-        return result with { Success = true };
+        if (result is not null)
+            result.Success = true;
+        return result ?? new AccountCreatedResult { Provider = url.Split('/').Last(), Success = false };
     }
 }

@@ -13,5 +13,5 @@ public sealed class AccountCreatedResult
     public string Password { get; init; } = "";
     public string Provider { get; init; } = "";
     public DateTime CreatedAt { get; init; }
-    public bool Success { get; init; }
+    public bool Success { get; set; }
 }
