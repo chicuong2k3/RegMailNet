@@ -2,6 +2,7 @@ using FastEndpoints;
 using FastEndpoints.Swagger;
 using RegMailNet;
 using RegMailNet.Api.Configuration;
+using RegMailNet.Api.Services;
 using RegMailNet.Browser;
 using RegMailNet.Configuration;
 using RegMailNet.EmailProviders;
@@ -36,11 +37,26 @@ builder.Services.AddSingleton(sp =>
         options: regMailNetOptions);
 });
 
+// File storage services
+builder.Services.AddSingleton<FileSettingsService>();
+builder.Services.AddSingleton<FileHistoryService>();
+
 builder.Services.AddFastEndpoints();
 builder.Services.SwaggerDocument();
 
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins("https://localhost:5001", "http://localhost:5003")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
 
+app.UseCors();
 app.UseFastEndpoints();
 app.UseSwaggerGen();
 

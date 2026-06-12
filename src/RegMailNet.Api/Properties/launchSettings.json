@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "RegMailNet.Api": {
+      "commandName": "project",
+      "applicationUrl": "https://localhost:5000;http://localhost:5002"
+    }
+  }
+}
