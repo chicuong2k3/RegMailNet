@@ -6,11 +6,14 @@ namespace RegMailNet.Ui.Services;
 public sealed class AccountHistoryService : IAccountHistoryService
 {
     private readonly HttpClient _http;
+    private readonly List<AccountHistoryEntry> _entries = [];
 
     public AccountHistoryService(HttpClient http)
     {
         _http = http;
     }
+
+    public List<AccountHistoryEntry> Entries => _entries;
 
     public async Task<IReadOnlyList<AccountHistoryEntry>> GetHistoryAsync()
     {
@@ -49,5 +52,39 @@ public sealed class AccountHistoryService : IAccountHistoryService
             sb.AppendLine($"\"{entry.Email}\",\"{entry.Password}\",\"{entry.Provider}\",\"{entry.CreatedAt:yyyy-MM-dd HH:mm}\",\"{entry.Status}\"");
         }
         return sb.ToString();
+    }
+
+    public void Add(AccountCreatedResult result, string provider)
+    {
+        _entries.Add(new AccountHistoryEntry
+        {
+            Email = result.Email,
+            Password = result.Password,
+            Provider = provider,
+            CreatedAt = result.CreatedAt,
+            Status = result.Success ? "Created" : "Failed"
+        });
+    }
+
+    public void Add(RegMailNet.EmailProviders.AccountCreationResult result, string provider)
+    {
+        _entries.Add(new AccountHistoryEntry
+        {
+            Email = result.Email,
+            Password = result.Password,
+            Provider = provider,
+            CreatedAt = DateTime.Now,
+            Status = "Created"
+        });
+    }
+
+    public void AddFailure(string provider, string error)
+    {
+        _entries.Add(new AccountHistoryEntry
+        {
+            Provider = provider,
+            CreatedAt = DateTime.Now,
+            Status = $"Failed: {error}"
+        });
     }
 }

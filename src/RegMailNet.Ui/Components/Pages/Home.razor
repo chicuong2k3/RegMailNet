@@ -201,7 +201,7 @@
         }
     }
 
-    private List<Services.AccountHistoryEntry> recentEntries => History.Entries.Take(5).ToList();
+    private List<Models.AccountHistoryEntry> recentEntries => History.Entries.Take(5).ToList();
 
     private List<ActivityDay> ActivityData => GetActivityData();
 

@@ -211,7 +211,7 @@
     private bool HasActiveFilters => !string.IsNullOrEmpty(filterProvider) || !string.IsNullOrEmpty(filterStatus) || filterDate.HasValue || !string.IsNullOrEmpty(searchEmail);
     private bool allSelected => selectedEntries.Count == PagedEntries.Count() && PagedEntries.Any();
 
-    private IEnumerable<Services.AccountHistoryEntry> FilteredEntries
+    private IEnumerable<Models.AccountHistoryEntry> FilteredEntries
     {
         get
         {
@@ -233,7 +233,7 @@
 
     private int TotalPages => Math.Max(1, (int)Math.Ceiling((double)FilteredEntries.Count() / pageSize));
 
-    private IEnumerable<Services.AccountHistoryEntry> PagedEntries
+    private IEnumerable<Models.AccountHistoryEntry> PagedEntries
     {
         get
         {

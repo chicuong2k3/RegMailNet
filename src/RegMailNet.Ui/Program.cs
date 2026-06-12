@@ -1,16 +1,16 @@
 using BlazorBlueprint.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using RegMailNet.Ui;
+using RegMailNet.Ui.Components;
 using RegMailNet.Ui.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
-builder.RootComponents.Add<App>("#app");
+builder.RootComponents.Add<Routes>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.AddScoped(sp => new HttpClient
 {
-    BaseAddress = new Uri(builder.HostEnvironment.BaseAddress)
+    BaseAddress = new Uri("http://localhost:5002")
 });
 
 builder.Services.AddBlazorBlueprintComponents();
