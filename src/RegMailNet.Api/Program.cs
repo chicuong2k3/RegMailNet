@@ -1,6 +1,7 @@
 using FastEndpoints;
 using FastEndpoints.Swagger;
 using RegMailNet;
+using RegMailNet.Api.Configuration;
 using RegMailNet.Configuration;
 using RegMailNet.EmailProviders;
 using RegMailNet.SmsServices;
@@ -9,18 +10,21 @@ using RegMailNet.Utilities;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRegMailNet(builder.Configuration);
+builder.Services.Configure<ApiOptions>(builder.Configuration.GetSection(ApiOptions.SectionName));
 
 builder.Services.AddSingleton(sp =>
 {
     var regMailNetOptions = Microsoft.Extensions.Options.Options.Create(
         builder.Configuration.GetSection(RegMailNetOptions.SectionName).Get<RegMailNetOptions>() ?? new());
 
+    var apiConfig = builder.Configuration.GetSection(ApiOptions.SectionName).Get<ApiOptions>() ?? new();
+
     return new RegMailNetManager(
-        captchaKeys: new Dictionary<string, string>(),
-        smsKeys: new Dictionary<string, Dictionary<string, string>>(),
-        proxies: null,
-        autoProxy: false,
-        headless: true,
+        captchaKeys: apiConfig.CaptchaKeys,
+        smsKeys: apiConfig.SmsKeys,
+        proxies: apiConfig.Proxies.Count > 0 ? apiConfig.Proxies : null,
+        autoProxy: apiConfig.AutoProxy,
+        headless: apiConfig.Headless,
         browserFactory: sp.GetRequiredService<Browser.IBrowserFactory>(),
         smsServiceFactory: sp.GetRequiredService<ISmsServiceFactory>(),
         freeProxyService: sp.GetRequiredService<IFreeProxyService>(),
