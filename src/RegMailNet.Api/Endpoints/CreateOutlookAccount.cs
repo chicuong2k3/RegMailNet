@@ -16,20 +16,32 @@ public sealed class CreateOutlookAccount : Endpoint<CreateAccountRequest, Accoun
     {
         var manager = Resolve<RegMailNet.RegMailNetManager>();
 
-        var result = await manager.CreateOutlookAccountAsync(
-            username: req.Username ?? "",
-            password: req.Password ?? "",
-            firstName: req.FirstName ?? "",
-            lastName: req.LastName ?? "",
-            useProxy: req.UseProxy,
-            cancellationToken: ct);
-
-        await SendOkAsync(new AccountCreatedResponse
+        try
         {
-            Email = result.Email,
-            Password = result.Password,
-            Provider = "outlook",
-            CreatedAt = DateTime.UtcNow
-        }, ct);
+            var result = await manager.CreateOutlookAccountAsync(
+                username: req.Username ?? "",
+                password: req.Password ?? "",
+                firstName: req.FirstName ?? "",
+                lastName: req.LastName ?? "",
+                useProxy: req.UseProxy,
+                cancellationToken: ct);
+
+            await SendOkAsync(new AccountCreatedResponse
+            {
+                Email = result.Email,
+                Password = result.Password,
+                Provider = "outlook",
+                CreatedAt = DateTime.UtcNow
+            }, ct);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to create Outlook account");
+            await SendAsync(new AccountCreatedResponse
+            {
+                Provider = "outlook",
+                CreatedAt = DateTime.UtcNow
+            }, 500, ct);
+        }
     }
 }

@@ -16,20 +16,32 @@ public sealed class CreateYahooAccount : Endpoint<CreateAccountRequest, AccountC
     {
         var manager = Resolve<RegMailNet.RegMailNetManager>();
 
-        var result = await manager.CreateYahooAccountAsync(
-            username: req.Username ?? "",
-            password: req.Password ?? "",
-            firstName: req.FirstName ?? "",
-            lastName: req.LastName ?? "",
-            useProxy: req.UseProxy,
-            cancellationToken: ct);
-
-        await SendOkAsync(new AccountCreatedResponse
+        try
         {
-            Email = result.Email,
-            Password = result.Password,
-            Provider = "yahoo",
-            CreatedAt = DateTime.UtcNow
-        }, ct);
+            var result = await manager.CreateYahooAccountAsync(
+                username: req.Username ?? "",
+                password: req.Password ?? "",
+                firstName: req.FirstName ?? "",
+                lastName: req.LastName ?? "",
+                useProxy: req.UseProxy,
+                cancellationToken: ct);
+
+            await SendOkAsync(new AccountCreatedResponse
+            {
+                Email = result.Email,
+                Password = result.Password,
+                Provider = "yahoo",
+                CreatedAt = DateTime.UtcNow
+            }, ct);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to create Yahoo account");
+            await SendAsync(new AccountCreatedResponse
+            {
+                Provider = "yahoo",
+                CreatedAt = DateTime.UtcNow
+            }, 500, ct);
+        }
     }
 }

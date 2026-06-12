@@ -6,6 +6,5 @@ public sealed class CreateAccountRequest
     public string? Password { get; init; }
     public string? FirstName { get; init; }
     public string? LastName { get; init; }
-    public string? Proxy { get; init; }
     public bool UseProxy { get; init; } = true;
 }
