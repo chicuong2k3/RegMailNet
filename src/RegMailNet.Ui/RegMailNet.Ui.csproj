@@ -15,6 +15,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Content Remove="$(NuGetPackageRoot)microsoft.playwright\1.60.0\.playwright\node\LICENSE" />
+    </ItemGroup>
+
+    <ItemGroup>
         <PackageReference Include="AngleSharp" Version="1.1.2" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.0" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.0" PrivateAssets="all" />
