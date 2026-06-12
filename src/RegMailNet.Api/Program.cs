@@ -2,6 +2,7 @@ using FastEndpoints;
 using FastEndpoints.Swagger;
 using RegMailNet;
 using RegMailNet.Api.Configuration;
+using RegMailNet.Browser;
 using RegMailNet.Configuration;
 using RegMailNet.EmailProviders;
 using RegMailNet.SmsServices;
@@ -25,7 +26,7 @@ builder.Services.AddSingleton(sp =>
         proxies: apiConfig.Proxies.Count > 0 ? apiConfig.Proxies : null,
         autoProxy: apiConfig.AutoProxy,
         headless: apiConfig.Headless,
-        browserFactory: sp.GetRequiredService<Browser.IBrowserFactory>(),
+        browserFactory: sp.GetRequiredService<IBrowserFactory>(),
         smsServiceFactory: sp.GetRequiredService<ISmsServiceFactory>(),
         freeProxyService: sp.GetRequiredService<IFreeProxyService>(),
         outlookProvider: sp.GetRequiredService<OutlookProvider>(),
