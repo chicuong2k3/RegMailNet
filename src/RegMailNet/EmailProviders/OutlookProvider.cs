@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
+using RegMailNet.CaptchaSolvers;
 using RegMailNet.Utilities;
 
 namespace RegMailNet.EmailProviders;
@@ -32,12 +33,14 @@ public class OutlookProvider : IEmailProvider
     private const int WaitTimeout = 5;
 
     private readonly ILogger<OutlookProvider> _logger;
+    private readonly PxSolverService? _pxSolver;
 
     public string ProviderName => EmailProvider.Outlook.ToValue();
 
-    public OutlookProvider(ILogger<OutlookProvider> logger)
+    public OutlookProvider(ILogger<OutlookProvider> logger, PxSolverService? pxSolver = null)
     {
         _logger = logger;
+        _pxSolver = pxSolver;
     }
 
     public virtual async Task<AccountCreationResult> CreateAccountAsync(
@@ -70,29 +73,31 @@ public class OutlookProvider : IEmailProvider
         try
         {
             _logger.LogInformation("Starting Microsoft account creation process");
-            await page.GotoAsync("https://signup.live.com/signup");
+            await page.GotoAsync("https://signup.live.com/signup", new PageGotoOptions { Timeout = 30000 });
+            _logger.LogInformation("Page loaded, URL: {Url}", page.Url);
 
             // Step 1: Enter full email address
             var domain = hotmail ? "hotmail.com" : "outlook.com";
             var fullEmail = $"{username}@{domain}";
             _logger.LogInformation("Entering email: {Email}", fullEmail);
-            await WebHelpers.FillAsync(page, Sel.EmailInput, fullEmail);
+            await WebHelpers.FillAsync(page, Sel.EmailInput, fullEmail, 15);
+            _logger.LogInformation("Email filled, clicking Next");
             await ClickNextButton(page);
 
             // Step 2: Confirm username (click Next again)
             _logger.LogInformation("Confirming username");
-            await Task.Delay(2000, cancellationToken);
+            await Task.Delay(3000, cancellationToken);
             await ClickNextButton(page);
 
             // Step 3: Enter password
             _logger.LogInformation("Entering password");
-            await Task.Delay(2000, cancellationToken);
-            await WebHelpers.FillAsync(page, Sel.PasswordInput, password);
+            await Task.Delay(3000, cancellationToken);
+            await WebHelpers.FillAsync(page, Sel.PasswordInput, password, 15);
             await ClickNextButton(page);
 
             // Step 4: Enter birthdate and country
             _logger.LogInformation("Entering birthdate and country");
-            await Task.Delay(2000, cancellationToken);
+            await Task.Delay(3000, cancellationToken);
 
             // Select country via custom dropdown
             if (!string.IsNullOrEmpty(country))
@@ -111,8 +116,8 @@ public class OutlookProvider : IEmailProvider
             // Step 5: Enter name (Microsoft now asks for name after birthdate)
             _logger.LogInformation("Entering name");
             await Task.Delay(3000, cancellationToken);
-            await WebHelpers.FillAsync(page, Sel.FirstNameInput, firstName);
-            await WebHelpers.FillAsync(page, Sel.LastNameInput, lastName);
+            await WebHelpers.FillAsync(page, Sel.FirstNameInput, firstName, 15);
+            await WebHelpers.FillAsync(page, Sel.LastNameInput, lastName, 15);
             await ClickNextButton(page);
 
             // Step 6: Handle human verification captcha
@@ -200,35 +205,107 @@ public class OutlookProvider : IEmailProvider
                 return;
             }
 
-            _logger.LogInformation("Human verification captcha detected, attempting to solve");
+            _logger.LogInformation("Human verification captcha detected");
 
-            // Find the captcha button in the hsprotect iframe
+            // Try px-solver first if available
+            if (_pxSolver != null)
+            {
+                _logger.LogInformation("Using px-solver to solve PerimeterX captcha");
+                var result = await _pxSolver.SolveAsync(page.Url, cancellationToken: cancellationToken);
+
+                if (result?.Cookies.Count > 0)
+                {
+                    _logger.LogInformation("px-solver solved captcha, setting cookies");
+
+                    // Set the cookies in the browser
+                    var cookies = result.Cookies.Select(c => new Cookie
+                    {
+                        Name = c.Name,
+                        Value = c.Value,
+                        Domain = c.Domain,
+                        Path = c.Path,
+                    }).ToArray();
+
+                    await page.Context.AddCookiesAsync(cookies);
+
+                    // Reload the page to apply cookies
+                    await page.ReloadAsync(new PageReloadOptions { Timeout = 30000 });
+                    await Task.Delay(3000, cancellationToken);
+
+                    _logger.LogInformation("Cookies set and page reloaded");
+                    return;
+                }
+
+                _logger.LogWarning("px-solver failed to solve captcha, falling back to manual");
+            }
+
+            // Fallback: manual interaction
+            _logger.LogInformation("Attempting manual captcha interaction");
+
             var hsprotectFrame = page.FrameLocator("iframe[title='Human Iframe']");
             var captchaButton = hsprotectFrame.Locator("#px-captcha");
 
             if (await captchaButton.CountAsync() == 0)
             {
-                _logger.LogWarning("Captcha button not found in iframe");
+                _logger.LogWarning("Captcha button not found");
                 return;
             }
 
-            // Simulate press and hold (mousedown, wait, mouseup)
             var box = await captchaButton.BoundingBoxAsync();
-            if (box != null)
+            if (box == null)
             {
-                var x = box.X + box.Width / 2;
-                var y = box.Y + box.Height / 2;
-
-                await page.Mouse.MoveAsync(x, y);
-                await page.Mouse.DownAsync();
-                await Task.Delay(10000); // Hold for 10 seconds
-                await page.Mouse.UpAsync();
-
-                _logger.LogInformation("Human verification captcha interaction completed");
+                _logger.LogWarning("Captcha button not visible");
+                return;
             }
 
-            // Wait for page to update
+            var centerX = box.X + box.Width / 2;
+            var centerY = box.Y + box.Height / 2;
+
+            // Simulate human-like mouse movement and press-hold
+            var random = new Random();
+            await page.Mouse.MoveAsync(
+                centerX + random.Next(-100, 100),
+                centerY + random.Next(-50, 50));
+            await Task.Delay(random.Next(200, 500), cancellationToken);
+
+            for (int i = 0; i < 5; i++)
+            {
+                var targetX = centerX + random.Next(-5, 5);
+                var targetY = centerY + random.Next(-3, 3);
+                await page.Mouse.MoveAsync(targetX, targetY);
+                await Task.Delay(random.Next(50, 150), cancellationToken);
+            }
+
+            await Task.Delay(random.Next(100, 300), cancellationToken);
+
+            await page.Mouse.DownAsync();
+            _logger.LogInformation("Holding captcha button...");
+
+            var holdTime = random.Next(10000, 12000);
+            var elapsed = 0;
+            while (elapsed < holdTime)
+            {
+                await Task.Delay(random.Next(500, 1500), cancellationToken);
+                elapsed += random.Next(500, 1500);
+                await page.Mouse.MoveAsync(
+                    centerX + random.Next(-2, 2),
+                    centerY + random.Next(-1, 1));
+            }
+
+            await page.Mouse.UpAsync();
+            _logger.LogInformation("Captcha button released after {Ms}ms", holdTime);
+
             await Task.Delay(5000, cancellationToken);
+
+            var stillPresent = await page.GetByText("Press and hold").CountAsync() > 0;
+            if (!stillPresent)
+            {
+                _logger.LogInformation("Human verification captcha solved successfully");
+            }
+            else
+            {
+                _logger.LogWarning("Captcha still present after interaction");
+            }
         }
         catch (Exception ex)
         {

@@ -15,6 +15,20 @@ services:
       timeout: 5s
       retries: 5
 
+  px-solver:
+    build:
+      context: ../px-solver
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8080"
+    environment:
+      PX_BIND: "0.0.0.0:8080"
+      PX_KEYS: "/app/config/keys.yaml"
+      PX_ALLOWLIST: "/app/config/allowlist.yaml"
+    volumes:
+      - px-solver-data:/app/data
+    restart: unless-stopped
+
   api:
     build:
       context: .
@@ -27,9 +41,12 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:5002
       ConnectionStrings__Default: "Host=postgres;Database=regmailnet;Username=postgres;Password=postgres"
+      PX_SOLVER_URL: "http://px-solver:8080"
     depends_on:
       postgres:
         condition: service_healthy
+      px-solver:
+        condition: service_started
 
   ui:
     build:
@@ -42,3 +59,4 @@ services:
 
 volumes:
   pgdata:
+  px-solver-data:

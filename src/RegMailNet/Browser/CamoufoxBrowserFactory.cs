@@ -87,6 +87,23 @@ public class CamoufoxBrowserFactory : IBrowserFactory
             };
         }
 
+        // Install Nopecha extension if API key is provided
+        List<string>? addons = null;
+        if (!string.IsNullOrEmpty(captchaApiKey))
+        {
+            // Camoufox requires extracted addon directory with manifest.json
+            var extensionDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "captcha_solvers", "nopecha");
+            if (Directory.Exists(extensionDir) && File.Exists(Path.Combine(extensionDir, "manifest.json")))
+            {
+                _logger.LogInformation("Installing Nopecha extension from {Path}", extensionDir);
+                addons = [extensionDir];
+            }
+            else
+            {
+                _logger.LogWarning("Nopecha extension not found at: {Path}", extensionDir);
+            }
+        }
+
         var options = new CamoufoxOptions
         {
             Headless = headless,
@@ -96,32 +113,28 @@ public class CamoufoxBrowserFactory : IBrowserFactory
             Window = (1280, 900),
             Locales = ["en-US", "en"],
             Proxy = proxyOptions,
+            Addons = addons,
         };
 
         var browser = await Camoufox.CreateAsync(options);
         var context = await browser.NewContextAsync();
+        var page = await context.NewPageAsync();
 
-        // Install Nopecha extension if API key is provided
+        // Configure Nopecha extension via setup page
         if (!string.IsNullOrEmpty(captchaApiKey))
         {
-            var extensionPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "captcha_solvers", "noptcha-0.6.1.xpi");
-            if (File.Exists(extensionPath))
+            try
             {
-                _logger.LogInformation("Installing Nopecha extension");
-                await context.AddInitScriptAsync($@"
-                    // Configure Nopecha API key
-                    window.nopechaConfig = {{
-                        key: '{captchaApiKey}'
-                    }};
-                ");
+                _logger.LogInformation("Configuring Nopecha extension with API key");
+                await page.GotoAsync($"https://nopecha.com/setup#{captchaApiKey}", new PageGotoOptions { Timeout = 15000 });
+                await Task.Delay(3000);
+                _logger.LogInformation("Nopecha extension configured");
             }
-            else
+            catch (Exception ex)
             {
-                _logger.LogWarning("Nopecha extension not found at: {Path}", extensionPath);
+                _logger.LogWarning(ex, "Failed to configure Nopecha extension (non-fatal)");
             }
         }
-
-        var page = await context.NewPageAsync();
 
         _logger.LogInformation("Camoufox browser launched successfully");
         return new BrowserPage(page, context, browser);
@@ -130,8 +143,15 @@ public class CamoufoxBrowserFactory : IBrowserFactory
     private static (string Scheme, string Host, int Port, string? Username, string? Password) ParseProxy(string proxy)
     {
         var uri = new Uri(proxy);
-        var username = string.IsNullOrEmpty(uri.UserInfo) ? null : uri.UserInfo.Split(':').FirstOrDefault();
-        var password = string.IsNullOrEmpty(uri.UserInfo) ? null : uri.UserInfo.Split(':').Skip(1).FirstOrDefault();
+        // Handle username:password in UserInfo
+        string? username = null;
+        string? password = null;
+        if (!string.IsNullOrEmpty(uri.UserInfo))
+        {
+            var parts = uri.UserInfo.Split(':', 2); // Split into max 2 parts
+            username = parts[0];
+            password = parts.Length > 1 ? parts[1] : null;
+        }
         return (uri.Scheme, uri.Host, uri.Port, username, password);
     }
 

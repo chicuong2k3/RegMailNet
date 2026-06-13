@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using RegMailNet.Browser;
+using RegMailNet.CaptchaSolvers;
 using RegMailNet.EmailProviders;
 using RegMailNet.SmsServices;
 using RegMailNet.Utilities;
@@ -22,7 +23,33 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IBrowserFactory, CamoufoxBrowserFactory>();
         services.AddSingleton<IFreeProxyService, FreeProxyService>();
 
-        services.AddSingleton<OutlookProvider>();
+        // Register PxSolverService if configured
+        services.AddSingleton<PxSolverService>(sp =>
+        {
+            var apiUrl = Environment.GetEnvironmentVariable("PX_SOLVER_URL");
+            var apiKey = Environment.GetEnvironmentVariable("PX_SOLVER_API_KEY");
+
+            if (string.IsNullOrEmpty(apiUrl) || string.IsNullOrEmpty(apiKey))
+            {
+                // Return a disabled instance
+                return new PxSolverService("http://localhost:0", "disabled",
+                    sp.GetRequiredService<IHttpClientFactory>().CreateClient(),
+                    Microsoft.Extensions.Logging.Abstractions.NullLogger<PxSolverService>.Instance);
+            }
+
+            return new PxSolverService(apiUrl, apiKey,
+                sp.GetRequiredService<IHttpClientFactory>().CreateClient(),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<PxSolverService>.Instance);
+        });
+
+        services.AddSingleton<OutlookProvider>(sp =>
+        {
+            var pxSolver = sp.GetRequiredService<PxSolverService>();
+            return new OutlookProvider(
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<OutlookProvider>.Instance,
+                pxSolver);
+        });
+
         services.AddSingleton<GmailProvider>();
         services.AddSingleton<YahooProvider>();
 

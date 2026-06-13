@@ -40,5 +40,17 @@ RUN pip install --break-system-packages camoufox && \
 
 WORKDIR /app
 COPY --from=build /app/publish .
+
+# Extract Nopecha extension (camoufox requires extracted addon directory with manifest.json)
+RUN apt-get update && apt-get install -y --no-install-recommends unzip && \
+    XPI=$(ls /app/captcha_solvers/noptcha-*.xpi 2>/dev/null | head -1) && \
+    if [ -n "$XPI" ]; then \
+        mkdir -p /app/captcha_solvers/nopecha && \
+        unzip -o "$XPI" -d /app/captcha_solvers/nopecha && \
+        echo "Nopecha extension extracted successfully"; \
+    else \
+        echo "Nopecha xpi not found, skipping"; \
+    fi
+
 EXPOSE 5002
 ENTRYPOINT ["dotnet", "RegMailNet.Api.dll"]
