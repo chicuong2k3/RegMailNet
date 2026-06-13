@@ -11,7 +11,7 @@ public static class WebHelpers
     /// <summary>
     /// Click an element identified by a CSS selector, waiting for it to be visible and enabled.
     /// </summary>
-    public static async Task ClickAsync(IPage page, string selector, int timeoutSeconds = 10)
+    public static async Task ClickAsync(IPage page, string selector, int timeoutSeconds = 5)
     {
         await page.Locator(selector).ClickAsync(new LocatorClickOptions
         {
@@ -22,7 +22,7 @@ public static class WebHelpers
     /// <summary>
     /// Fill a text input identified by a CSS selector, clearing it first.
     /// </summary>
-    public static async Task FillAsync(IPage page, string selector, string value, int timeoutSeconds = 10)
+    public static async Task FillAsync(IPage page, string selector, string value, int timeoutSeconds = 5)
     {
         await page.Locator(selector).FillAsync(value, new LocatorFillOptions
         {
@@ -60,7 +60,7 @@ public static class WebHelpers
     /// <summary>
     /// Select an option from a dropdown by its value attribute.
     /// </summary>
-    public static async Task SelectOptionAsync(IPage page, string selector, string value, int timeoutSeconds = 10)
+    public static async Task SelectOptionAsync(IPage page, string selector, string value, int timeoutSeconds = 5)
     {
         await page.Locator(selector).SelectOptionAsync(new SelectOptionValue { Value = value },
             new LocatorSelectOptionOptions { Timeout = timeoutSeconds * 1000 });
@@ -69,7 +69,7 @@ public static class WebHelpers
     /// <summary>
     /// Select an option from a dropdown by its label (visible text).
     /// </summary>
-    public static async Task SelectByTextAsync(IPage page, string selector, string label, int timeoutSeconds = 10)
+    public static async Task SelectByTextAsync(IPage page, string selector, string label, int timeoutSeconds = 5)
     {
         await page.Locator(selector).SelectOptionAsync(new SelectOptionValue { Label = label },
             new LocatorSelectOptionOptions { Timeout = timeoutSeconds * 1000 });
@@ -78,7 +78,7 @@ public static class WebHelpers
     /// <summary>
     /// Select an option from a dropdown by its index.
     /// </summary>
-    public static async Task SelectByIndexAsync(IPage page, string selector, int index, int timeoutSeconds = 10)
+    public static async Task SelectByIndexAsync(IPage page, string selector, int index, int timeoutSeconds = 5)
     {
         // Get all option elements, then select by the value at the given index
         var options = await page.Locator($"{selector} option").AllAsync();
@@ -94,7 +94,7 @@ public static class WebHelpers
     /// Type text into an element, clearing it first with keyboard shortcuts.
     /// Scrolls the element into view before typing.
     /// </summary>
-    public static async Task TypeIntoAsync(IPage page, string selector, string value, int timeoutSeconds = 10)
+    public static async Task TypeIntoAsync(IPage page, string selector, string value, int timeoutSeconds = 5)
     {
         var locator = page.Locator(selector);
         await locator.ScrollIntoViewIfNeededAsync(new LocatorScrollIntoViewIfNeededOptions

@@ -20,7 +20,7 @@ public sealed class CreateYahooAccount : Endpoint<CreateAccountRequest, AccountC
         try
         {
             var result = await manager.CreateYahooAccountAsync(
-                useProxy: req.UseProxy,
+                useProxy: true,
                 cancellationToken: ct);
 
             await SendOkAsync(new AccountCreatedResponse

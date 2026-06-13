@@ -12,9 +12,22 @@ RUN dotnet publish "src/RegMailNet.Api/RegMailNet.Api.csproj" -c Release -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 
-# Install Python and pip for Camoufox anti-detect browser
+# Install Python, pip, and GTK/X11 libs for Camoufox (Firefox-based)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends python3 python3-pip python3-venv && \
+    apt-get install -y --no-install-recommends \
+        python3 python3-pip python3-venv \
+        libgtk-3-0t64 libdbus-glib-1-2 libx11-xcb1 libxcb-shape0 \
+        libxt6t64 libasound2t64 libxcomposite1 libxdamage1 libxrandr2 \
+        libatk1.0-0t64 libatk-bridge2.0-0t64 libatspi2.0-0t64 libcups2t64 \
+        libdrm2 libgbm1 libpango-1.0-0 libcairo2 libxfixes3 \
+        libxext6 libx11-6 fonts-liberation || \
+    apt-get install -y --no-install-recommends \
+        python3 python3-pip python3-venv \
+        libgtk-3-0 libdbus-glib-1-2 libx11-xcb1 libxcb-shape0 \
+        libxt6 libasound2 libxcomposite1 libxdamage1 libxrandr2 \
+        libatk1.0-0 libatk-bridge2.0-0 libatspi2.0-0 libcups2 \
+        libdrm2 libgbm1 libpango-1.0-0 libcairo2 libxfixes3 \
+        libxext6 libx11-6 fonts-liberation && \
     ln -sf /usr/bin/python3 /usr/bin/python && \
     ln -sf /usr/bin/pip3 /usr/bin/pip && \
     apt-get clean && \

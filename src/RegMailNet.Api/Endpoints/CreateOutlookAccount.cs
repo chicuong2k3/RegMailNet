@@ -20,7 +20,7 @@ public sealed class CreateOutlookAccount : Endpoint<CreateAccountRequest, Accoun
         try
         {
             var result = await manager.CreateOutlookAccountAsync(
-                useProxy: req.UseProxy,
+                useProxy: true,
                 cancellationToken: ct);
 
             await SendOkAsync(new AccountCreatedResponse

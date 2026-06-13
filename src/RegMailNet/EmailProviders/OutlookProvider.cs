@@ -8,27 +8,28 @@ public class OutlookProvider : IEmailProvider
 {
     private static class Sel
     {
-        public const string EmailSwitch = "#liveSwitch";
-        public const string UsernameInput = "#usernameInput";
-        public const string DomainSelect = "#domainSelect";
-        public const string NextButton = "#nextButton";
-        public const string ShowPassword = "#ShowHidePasswordCheckbox";
-        public const string OptinEmail = "#iOptinEmail";
-        public const string PasswordInput = "#Password";
+        // Step 1: Email entry
+        public const string EmailInput = "input[type='email']";
+
+        // Step 3: Password entry
+        public const string PasswordInput = "input[type='password']";
+
+        // Step 4: Birthdate (custom dropdowns + number input)
+        public const string CountryDropdown = "#countryDropdownId";
+        public const string BirthMonthDropdown = "#BirthMonthDropdown";
+        public const string BirthDayDropdown = "#BirthDayDropdown";
+        public const string BirthYearInput = "input[name='BirthYear']";
+
+        // Step 5: Name entry
         public const string FirstNameInput = "#firstNameInput";
         public const string LastNameInput = "#lastNameInput";
-        public const string CountrySelect = "#countryRegionDropdown";
-        public const string BirthMonth = "#BirthMonth";
-        public const string BirthDay = "#BirthDay";
-        public const string BirthYear = "#BirthYear";
-        public const string CaptchaFrame = "#enforcementFrame";
+
+        // Success
         public const string SuccessMessage = "span:has-text('A quick note about your Microsoft account')";
         public const string OkButton = "#id__0";
     }
 
-    private const int WaitTimeout = 10;
-    private const int MaxCaptchaRetries = 3;
-    private const int CaptchaRetryDelay = 60;
+    private const int WaitTimeout = 5;
 
     private readonly ILogger<OutlookProvider> _logger;
 
@@ -71,46 +72,61 @@ public class OutlookProvider : IEmailProvider
             _logger.LogInformation("Starting Microsoft account creation process");
             await page.GotoAsync("https://signup.live.com/signup");
 
-            await WebHelpers.ClickAsync(page, Sel.EmailSwitch);
+            // Step 1: Enter full email address
+            var domain = hotmail ? "hotmail.com" : "outlook.com";
+            var fullEmail = $"{username}@{domain}";
+            _logger.LogInformation("Entering email: {Email}", fullEmail);
+            await WebHelpers.FillAsync(page, Sel.EmailInput, fullEmail);
+            await ClickNextButton(page);
+
+            // Step 2: Confirm username (click Next again)
+            _logger.LogInformation("Confirming username");
             await Task.Delay(2000, cancellationToken);
-            await WebHelpers.FillAsync(page, Sel.UsernameInput, username);
+            await ClickNextButton(page);
 
-            if (hotmail)
-                await WebHelpers.SelectByIndexAsync(page, Sel.DomainSelect, 1);
-
-            await WebHelpers.ClickAsync(page, Sel.NextButton);
-
-            try
-            {
-                await WebHelpers.ClickAsync(page, Sel.ShowPassword, 5);
-                await WebHelpers.ClickAsync(page, Sel.OptinEmail, 5);
-            }
-            catch (TimeoutException)
-            {
-                _logger.LogDebug("Optional password visibility elements not found");
-            }
-
+            // Step 3: Enter password
+            _logger.LogInformation("Entering password");
+            await Task.Delay(2000, cancellationToken);
             await WebHelpers.FillAsync(page, Sel.PasswordInput, password);
-            await WebHelpers.ClickAsync(page, Sel.NextButton);
+            await ClickNextButton(page);
 
+            // Step 4: Enter birthdate and country
+            _logger.LogInformation("Entering birthdate and country");
+            await Task.Delay(2000, cancellationToken);
+
+            // Select country via custom dropdown
+            if (!string.IsNullOrEmpty(country))
+                await SelectCustomDropdownByText(page, Sel.CountryDropdown, country);
+
+            // Select birth month via custom dropdown
+            await SelectCustomDropdownByIndex(page, Sel.BirthMonthDropdown, int.Parse(month) - 1);
+
+            // Select birth day via custom dropdown
+            await SelectCustomDropdownByIndex(page, Sel.BirthDayDropdown, int.Parse(day) - 1);
+
+            // Fill birth year
+            await WebHelpers.FillAsync(page, Sel.BirthYearInput, year);
+            await ClickNextButton(page);
+
+            // Step 5: Enter name (Microsoft now asks for name after birthdate)
+            _logger.LogInformation("Entering name");
+            await Task.Delay(3000, cancellationToken);
             await WebHelpers.FillAsync(page, Sel.FirstNameInput, firstName);
             await WebHelpers.FillAsync(page, Sel.LastNameInput, lastName);
-            await WebHelpers.ClickAsync(page, Sel.NextButton);
+            await ClickNextButton(page);
 
-            await WebHelpers.SelectByTextAsync(page, Sel.CountrySelect, country);
-            await WebHelpers.SelectByIndexAsync(page, Sel.BirthMonth, int.Parse(month));
-            await WebHelpers.SelectByIndexAsync(page, Sel.BirthDay, int.Parse(day));
-            await WebHelpers.FillAsync(page, Sel.BirthYear, year);
-            await WebHelpers.ClickAsync(page, Sel.NextButton);
+            // Verify account creation
+            await Task.Delay(3000, cancellationToken);
 
-            await HandleCaptchaAsync(page);
+            // Check if account creation was blocked
+            if (await IsAccountBlockedAsync(page))
+                throw new AccountCreationException("Microsoft blocked account creation: unusual activity detected");
 
             if (!await VerifyAccountCreationAsync(page))
                 throw new AccountCreationException("Account creation verification failed");
 
-            var domain = hotmail ? "hotmail" : "outlook";
-            _logger.LogInformation("{Provider} account created successfully", hotmail ? "Hotmail" : "Outlook");
-            return new AccountCreationResult($"{username}@{domain}.com", password);
+            _logger.LogInformation("{Provider} account created successfully: {Email}", hotmail ? "Hotmail" : "Outlook", fullEmail);
+            return new AccountCreationResult(fullEmail, password);
         }
         catch (Exception ex) when (ex is not AccountCreationException)
         {
@@ -119,42 +135,64 @@ public class OutlookProvider : IEmailProvider
         }
     }
 
-    private async Task HandleCaptchaAsync(IPage page)
+    /// <summary>
+    /// Click the "Next" button by its text content.
+    /// </summary>
+    private static async Task ClickNextButton(IPage page)
+    {
+        await page.GetByRole(AriaRole.Button, new() { Name = "Next" }).ClickAsync();
+    }
+
+    /// <summary>
+    /// Select an option from a custom dropdown by clicking it and then clicking the option by index.
+    /// </summary>
+    private async Task SelectCustomDropdownByIndex(IPage page, string dropdownSelector, int index)
+    {
+        _logger.LogDebug("Selecting index {Index} from dropdown {Selector}", index, dropdownSelector);
+        await page.Locator(dropdownSelector).ClickAsync(new LocatorClickOptions { Force = true });
+        await Task.Delay(500);
+
+        // Click the option at the given index within the dropdown listbox
+        var options = page.Locator("[role='option'], [role='listbox'] li");
+        var count = await options.CountAsync();
+        if (index >= count)
+        {
+            _logger.LogWarning("Index {Index} out of range (0-{MaxIndex}) for dropdown {Selector}", index, count - 1, dropdownSelector);
+            index = count - 1;
+        }
+        await options.Nth(index).ClickAsync();
+        await Task.Delay(300);
+    }
+
+    /// <summary>
+    /// Select an option from a custom dropdown by its text content.
+    /// </summary>
+    private async Task SelectCustomDropdownByText(IPage page, string dropdownSelector, string text)
+    {
+        _logger.LogDebug("Selecting '{Text}' from dropdown {Selector}", text, dropdownSelector);
+        await page.Locator(dropdownSelector).ClickAsync(new LocatorClickOptions { Force = true });
+        await Task.Delay(500);
+
+        var option = page.GetByRole(AriaRole.Option, new() { Name = text });
+        if (await option.CountAsync() == 0)
+        {
+            // Fallback: try matching by text content
+            option = page.Locator($"[role='option']:has-text('{text}'), li:has-text('{text}')");
+        }
+        await option.First.ClickAsync();
+        await Task.Delay(300);
+    }
+
+    private async Task<bool> IsAccountBlockedAsync(IPage page)
     {
         try
         {
-            // Switch to captcha iframe chain
-            var captchaFrame = page.FrameLocator(Sel.CaptchaFrame);
-            var innerFrame = captchaFrame.FrameLocator("iframe");
-            var gameFrame = innerFrame.FrameLocator("#game-core-frame");
-
-            await gameFrame.Locator("div#root > div > div > button").ClickAsync();
-
-            var success = false;
-            for (var i = 0; i < MaxCaptchaRetries; i++)
-            {
-                try
-                {
-                    await page.WaitForURLAsync("**/*privacynotice**", new PageWaitForURLOptions
-                    {
-                        Timeout = CaptchaRetryDelay * 1000,
-                    });
-                    success = true;
-                    break;
-                }
-                catch (TimeoutException)
-                {
-                    continue;
-                }
-            }
-
-            if (!success)
-                throw new AccountCreationException("The captcha was not solved");
+            var blockedText = page.GetByText("Account creation has been blocked");
+            return await blockedText.CountAsync() > 0;
         }
-        catch (Exception ex) when (ex is not AccountCreationException)
+        catch
         {
-            _logger.LogError(ex, "Captcha handling failed");
-            throw new AccountCreationException("Captcha challenge failed", ex);
+            return false;
         }
     }
 
