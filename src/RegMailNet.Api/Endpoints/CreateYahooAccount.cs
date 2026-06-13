@@ -1,11 +1,10 @@
 using FastEndpoints;
 using RegMailNet;
-using RegMailNet.Api.Requests;
 using RegMailNet.Api.Responses;
 
 namespace RegMailNet.Api.Endpoints;
 
-public sealed class CreateYahooAccount : Endpoint<CreateAccountRequest, AccountCreatedResponse>
+public sealed class CreateYahooAccount : EndpointWithoutRequest<AccountCreatedResponse>
 {
     public override void Configure()
     {
@@ -13,7 +12,7 @@ public sealed class CreateYahooAccount : Endpoint<CreateAccountRequest, AccountC
         AllowAnonymous();
     }
 
-    public override async Task HandleAsync(CreateAccountRequest req, CancellationToken ct)
+    public override async Task HandleAsync(CancellationToken ct)
     {
         var manager = Resolve<RegMailNet.RegMailNetManager>();
 
