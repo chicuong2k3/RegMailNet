@@ -8,6 +8,7 @@ RUN dotnet restore "src/RegMailNet.Api/RegMailNet.Api.csproj"
 
 COPY src/RegMailNet.Api/ src/RegMailNet.Api/
 COPY src/RegMailNet/ src/RegMailNet/
+COPY src/RegMailNet/captcha_solvers/ src/RegMailNet/captcha_solvers/
 RUN dotnet publish "src/RegMailNet.Api/RegMailNet.Api.csproj" -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0

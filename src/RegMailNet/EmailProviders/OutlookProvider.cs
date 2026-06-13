@@ -115,6 +115,11 @@ public class OutlookProvider : IEmailProvider
             await WebHelpers.FillAsync(page, Sel.LastNameInput, lastName);
             await ClickNextButton(page);
 
+            // Step 6: Handle human verification captcha
+            _logger.LogInformation("Checking for human verification captcha");
+            await Task.Delay(5000, cancellationToken);
+            await HandleHumanVerificationAsync(page, cancellationToken);
+
             // Verify account creation
             await Task.Delay(3000, cancellationToken);
 
@@ -183,6 +188,54 @@ public class OutlookProvider : IEmailProvider
         await Task.Delay(300);
     }
 
+    private async Task HandleHumanVerificationAsync(IPage page, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Check if "Press and hold" captcha is present
+            var humanVerifyText = page.GetByText("Press and hold");
+            if (await humanVerifyText.CountAsync() == 0)
+            {
+                _logger.LogDebug("No human verification captcha found");
+                return;
+            }
+
+            _logger.LogInformation("Human verification captcha detected, attempting to solve");
+
+            // Find the captcha button in the hsprotect iframe
+            var hsprotectFrame = page.FrameLocator("iframe[title='Human Iframe']");
+            var captchaButton = hsprotectFrame.Locator("#px-captcha");
+
+            if (await captchaButton.CountAsync() == 0)
+            {
+                _logger.LogWarning("Captcha button not found in iframe");
+                return;
+            }
+
+            // Simulate press and hold (mousedown, wait, mouseup)
+            var box = await captchaButton.BoundingBoxAsync();
+            if (box != null)
+            {
+                var x = box.X + box.Width / 2;
+                var y = box.Y + box.Height / 2;
+
+                await page.Mouse.MoveAsync(x, y);
+                await page.Mouse.DownAsync();
+                await Task.Delay(10000); // Hold for 10 seconds
+                await page.Mouse.UpAsync();
+
+                _logger.LogInformation("Human verification captcha interaction completed");
+            }
+
+            // Wait for page to update
+            await Task.Delay(5000, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Human verification handling failed (non-fatal)");
+        }
+    }
+
     private async Task<bool> IsAccountBlockedAsync(IPage page)
     {
         try
@@ -200,18 +253,63 @@ public class OutlookProvider : IEmailProvider
     {
         try
         {
-            var successMessage = page.Locator(Sel.SuccessMessage);
-            await successMessage.WaitForAsync(new LocatorWaitForOptions
+            _logger.LogInformation("Verifying account creation, current URL: {Url}", page.Url);
+
+            // Check for multiple success indicators
+            var successSelectors = new[]
             {
-                State = WaitForSelectorState.Visible,
-                Timeout = WaitTimeout * 1000,
-            });
-            await WebHelpers.ClickAsync(page, Sel.OkButton);
-            return true;
+                Sel.SuccessMessage,
+                "span:has-text('quick note')",
+                "span:has-text('Microsoft account')",
+                "h1:has-text('Welcome')",
+                "div:has-text('account has been created')",
+                "#id__0"
+            };
+
+            foreach (var selector in successSelectors)
+            {
+                try
+                {
+                    var element = page.Locator(selector);
+                    if (await element.CountAsync() > 0)
+                    {
+                        _logger.LogInformation("Found success indicator: {Selector}", selector);
+
+                        // Try to click OK button if present
+                        try
+                        {
+                            await WebHelpers.ClickAsync(page, Sel.OkButton, 3);
+                        }
+                        catch (TimeoutException)
+                        {
+                            // OK button might not exist
+                        }
+
+                        return true;
+                    }
+                }
+                catch (TimeoutException)
+                {
+                    continue;
+                }
+            }
+
+            // Check if URL changed to success page
+            if (page.Url.Contains("privacynotice") || page.Url.Contains("success") || page.Url.Contains("upsell"))
+            {
+                _logger.LogInformation("Account creation succeeded (URL: {Url})", page.Url);
+                return true;
+            }
+
+            // Log current page content for debugging
+            var bodyText = await page.Locator("body").InnerTextAsync();
+            _logger.LogWarning("Account verification failed. Page content: {Content}", bodyText.Substring(0, Math.Min(500, bodyText.Length)));
+
+            return false;
         }
-        catch (TimeoutException)
+        catch (Exception ex)
         {
-            _logger.LogError("Account creation verification timeout");
+            _logger.LogError(ex, "Account creation verification failed");
             return false;
         }
     }

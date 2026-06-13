@@ -18,4 +18,8 @@
     <PackageReference Include="WebDriverManager" Version="2.17.7" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="captcha_solvers\**" CopyToOutputDirectory="PreserveNewest" LinkBase="captcha_solvers" />
+  </ItemGroup>
+
 </Project>

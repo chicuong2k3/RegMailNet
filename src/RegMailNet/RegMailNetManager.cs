@@ -83,7 +83,8 @@ public class RegMailNetManager
         await using var browserPage = await _browserFactory.CreatePageAsync(
             headless: _headless,
             proxy: proxy,
-            humanize: true);
+            humanize: true,
+            captchaApiKey: captchaKey?.Key);
 
         var info = _dataGenerator.GenerateMissingInfo(username, password, firstName, lastName, country, birthdate);
         var bd = _dataGenerator.GetBirthdate(info.Birthdate);

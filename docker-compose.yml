@@ -21,6 +21,8 @@ services:
       dockerfile: src/RegMailNet.Api/Dockerfile
     ports:
       - "5002:5002"
+    env_file:
+      - .env
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:5002

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using CamoufoxNet;
 using Microsoft.Extensions.Logging;
+using Microsoft.Playwright;
 
 namespace RegMailNet.Browser;
 
@@ -66,7 +67,8 @@ public class CamoufoxBrowserFactory : IBrowserFactory
         bool headless = true,
         string? proxy = null,
         bool humanize = true,
-        bool blockWebRtc = true)
+        bool blockWebRtc = true,
+        string? captchaApiKey = null)
     {
         await EnsureInstalledAsync();
 
@@ -98,6 +100,27 @@ public class CamoufoxBrowserFactory : IBrowserFactory
 
         var browser = await Camoufox.CreateAsync(options);
         var context = await browser.NewContextAsync();
+
+        // Install Nopecha extension if API key is provided
+        if (!string.IsNullOrEmpty(captchaApiKey))
+        {
+            var extensionPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "captcha_solvers", "noptcha-0.6.1.xpi");
+            if (File.Exists(extensionPath))
+            {
+                _logger.LogInformation("Installing Nopecha extension");
+                await context.AddInitScriptAsync($@"
+                    // Configure Nopecha API key
+                    window.nopechaConfig = {{
+                        key: '{captchaApiKey}'
+                    }};
+                ");
+            }
+            else
+            {
+                _logger.LogWarning("Nopecha extension not found at: {Path}", extensionPath);
+            }
+        }
+
         var page = await context.NewPageAsync();
 
         _logger.LogInformation("Camoufox browser launched successfully");

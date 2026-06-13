@@ -20,11 +20,13 @@ public interface IBrowserFactory
     /// <param name="proxy">Optional proxy URL, e.g. "http://user:pass@host:port".</param>
     /// <param name="humanize">Enable human-like mouse movement.</param>
     /// <param name="blockWebRtc">Block WebRTC to prevent IP leaks.</param>
+    /// <param name="captchaApiKey">Optional captcha API key for solving captchas.</param>
     Task<BrowserPage> CreatePageAsync(
         bool headless = true,
         string? proxy = null,
         bool humanize = true,
-        bool blockWebRtc = true);
+        bool blockWebRtc = true,
+        string? captchaApiKey = null);
 }
 
 /// <summary>

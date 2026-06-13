@@ -13,8 +13,8 @@ public partial class FreeProxyService : IFreeProxyService
     private readonly HttpClient _httpClient;
     private readonly ILogger<FreeProxyService> _logger;
 
-    // Matches rows in the free-proxy-list.net HTML table
-    [GeneratedRegex(@"<tr><td>(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})</td><td>(\d+)</td><td>([^<]*)</td><td class='hm'>([^<]*)</td><td>([^<]*)</td><td class='hm'>([^<]*)</td><td>([^<]*)</td><td class='hx'>([^<]*)</td><td class='hm'>([^<]*)</td></tr>")]
+    // Matches rows in the free-proxy-list.net HTML table (8 columns)
+    [GeneratedRegex(@"<tr><td>(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})</td><td>(\d+)</td><td>([^<]*)</td><td class='hm'>([^<]*)</td><td>([^<]*)</td><td class='hm'>([^<]*)</td><td class='hx'>([^<]*)</td><td class='hm'>([^<]*)</td></tr>")]
     private static partial Regex ProxyListRegex();
 
     public FreeProxyService(HttpClient httpClient, ILogger<FreeProxyService> logger)
@@ -90,7 +90,8 @@ public partial class FreeProxyService : IFreeProxyService
 
         foreach (Match match in regex.Matches(html))
         {
-            if (match.Groups.Count >= 5
+            // Groups: 1=IP, 2=Port, 3=Code, 4=Country, 5=Anonymity, 6=Google, 7=Https, 8=LastChecked
+            if (match.Groups.Count >= 8
                 && int.TryParse(match.Groups[2].Value, out var port))
             {
                 results.Add(new ProxyEntry
@@ -99,7 +100,7 @@ public partial class FreeProxyService : IFreeProxyService
                     Port = port,
                     CountryCode = match.Groups[3].Value.Trim(),
                     Country = match.Groups[4].Value.Trim(),
-                    IsHttps = match.Groups[5].Value.Trim().Equals("yes", StringComparison.OrdinalIgnoreCase)
+                    IsHttps = match.Groups[7].Value.Trim().Equals("yes", StringComparison.OrdinalIgnoreCase)
                 });
             }
         }
